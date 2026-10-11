@@ -41,6 +41,20 @@ _SEEN_APPROVAL_MESSAGE_TS = set()
 _SEEN_APPROVAL_LOCK = threading.Lock()
 
 
+def _tenant_aws_credentials():
+    import credential_store
+    organization_id = str(config.DEFAULT_ORGANIZATION_ID or "").strip()
+    if not organization_id:
+        return None
+    return credential_store.resolve_provider(organization_id, "aws")
+
+
+def _tenant_allowed_actions():
+    credentials = _tenant_aws_credentials() or {}
+    stored = {value.strip() for value in credentials.get("allowed_actions", "").split(",") if value.strip()}
+    return stored if credentials else set(config.AWS_ALLOWED_ACTIONS)
+
+
 def parse_approval(text):
     """Return an approval ID only for an explicit APPROVE command."""
     clean = _without_slack_mention(text)
@@ -189,19 +203,19 @@ def _create_request(parsed, channel, source_ts, thread_ts, requester_id):
     return request_id, requester, expires_at, bool(inserted)
 
 
-def _state(identifier, region):
-    description = aws.describe_instance(identifier, region)
+def _state(identifier, region, client=None):
+    description = aws.describe_instance(identifier, region, client)
     return str(description.get("state") or "unknown")
 
 
-def _before_state(item):
+def _before_state(item, client=None):
     if item["action"] == "delete_volume":
-        return str(aws.describe_volume(item["volume_id"], item["region"]).get("state") or "unknown")
+        return str(aws.describe_volume(item["volume_id"], item["region"], client).get("state") or "unknown")
     if item["action"] == "delete_snapshot":
-        return str(aws.describe_snapshot(item["snapshot_id"], item["region"]).get("state") or "unknown")
+        return str(aws.describe_snapshot(item["snapshot_id"], item["region"], client).get("state") or "unknown")
     if item["action"] == "create_snapshot" and item.get("volume_id"):
-        return str(aws.describe_volume(item["volume_id"], item["region"]).get("state") or "unknown")
-    return _state(item["resource_id"], item["region"])
+        return str(aws.describe_volume(item["volume_id"], item["region"], client).get("state") or "unknown")
+    return _state(item["resource_id"], item["region"], client)
 
 
 def _update_execution(request_id, **values):
@@ -235,7 +249,15 @@ def _execute(request_id):
     verified = False
     error = None
     try:
-        before_state = _before_state(item)
+        tenant_credentials = _tenant_aws_credentials()
+        credentials = tenant_credentials or {}
+        allowed_actions = (
+            {value.strip() for value in credentials.get("allowed_actions", "").split(",") if value.strip()}
+            if tenant_credentials else set(config.AWS_ALLOWED_ACTIONS)
+        )
+        execution_mode = credentials.get("execution_mode") or ("validation" if config.AWS_DRY_RUN else "live")
+        client = aws.client_for_credentials(credentials, item["region"])
+        before_state = _before_state(item, client)
         _update_execution(request_id, before_state=before_state)
         result = aws.execute(
             item["action"], item["resource_id"], approved=True,
@@ -244,6 +266,8 @@ def _execute(request_id):
             approver=item.get("approver") or item.get("approver_id"),
             volume_id=item.get("volume_id"), snapshot_id=item.get("snapshot_id"),
             description=item.get("description"),
+            client=client, organization_id=config.DEFAULT_ORGANIZATION_ID,
+            dry_run=execution_mode != "live", allowed_actions=allowed_actions,
         )
         success = bool(result.get("success"))
         dry_run = bool(result.get("dry_run"))
@@ -257,7 +281,7 @@ def _execute(request_id):
             if not created_snapshot:
                 error = "AWS did not return a snapshot ID"
             else:
-                snapshot = aws.describe_snapshot(created_snapshot, item["region"])
+                snapshot = aws.describe_snapshot(created_snapshot, item["region"], client)
                 after_state = str(snapshot.get("state") or "unknown")
                 verified = after_state in {"pending", "completed"}
                 _update_execution(request_id, snapshot_id=created_snapshot)
@@ -266,6 +290,7 @@ def _execute(request_id):
             verification = aws.wait_for_snapshot_deleted(
                 item["snapshot_id"], region=item["region"],
                 timeout=config.SLACK_AWS_VERIFY_SECONDS,
+                client=client,
             )
             verified = bool(verification.get("verified"))
             after_state = verification.get("state") or "unknown"
@@ -274,6 +299,7 @@ def _execute(request_id):
             verification = aws.wait_for_volume_deleted(
                 item["volume_id"], region=item["region"],
                 timeout=config.SLACK_AWS_VERIFY_SECONDS,
+                client=client,
             )
             verified = bool(verification.get("verified"))
             after_state = verification.get("state") or "unknown"
@@ -283,12 +309,13 @@ def _execute(request_id):
             verification = aws.wait_for_instance_state(
                 item["resource_id"], expected, region=item["region"],
                 timeout=config.SLACK_AWS_VERIFY_SECONDS,
+                client=client,
             )
             verified = bool(verification.get("verified"))
             after_state = str((verification.get("instance") or {}).get("state") or "unknown")
             error = error or verification.get("error")
         elif success:
-            after_state = _state(item["resource_id"], item["region"])
+            after_state = _state(item["resource_id"], item["region"], client)
             verified = after_state == "running"
 
         status = "completed" if success and verified else "failed"
@@ -430,10 +457,10 @@ def handle_message(text, channel, ts, requester_id, *, thread_ts=None, mentioned
             thread_ts=root_ts,
         )
         return True
-    if parsed["action"] not in config.AWS_ALLOWED_ACTIONS:
+    if parsed["action"] not in _tenant_allowed_actions():
         slack_handler.post_message(
             channel,
-            f"⛔ `{parsed['action']}` is disabled by `AWS_ALLOWED_ACTIONS`; no request was created.",
+            f"⛔ `{parsed['action']}` is disabled in the AWS connection policy; no request was created. Enable it under Connections → AWS → Manage connection.",
             thread_ts=root_ts,
         )
         return True

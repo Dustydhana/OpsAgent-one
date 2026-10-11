@@ -449,11 +449,11 @@ def provision_instance(spec, approved=False, actor="unknown", requester=None, ap
     return result
 
 
-def wait_for_snapshot_deleted(snapshot_id, region=None, timeout=120, poll_seconds=5):
+def wait_for_snapshot_deleted(snapshot_id, region=None, timeout=120, poll_seconds=5, client=None):
     deadline = time.monotonic() + max(1, int(timeout))
     while time.monotonic() < deadline:
         try:
-            last = describe_snapshot(snapshot_id, region)
+            last = describe_snapshot(snapshot_id, region, client)
         except ClientError as exc:
             code = exc.response.get("Error", {}).get("Code", "") if hasattr(exc, "response") else ""
             if code in {"InvalidSnapshot.NotFound", "InvalidSnapshotID.NotFound"}:
@@ -464,12 +464,12 @@ def wait_for_snapshot_deleted(snapshot_id, region=None, timeout=120, poll_second
             "error": f"Timed out after {timeout}s waiting for snapshot deletion"}
 
 
-def wait_for_volume_deleted(volume_id, region=None, timeout=120, poll_seconds=5):
+def wait_for_volume_deleted(volume_id, region=None, timeout=120, poll_seconds=5, client=None):
     deadline = time.monotonic() + max(1, int(timeout))
     last = None
     while time.monotonic() < deadline:
         try:
-            last = describe_volume(volume_id, region)
+            last = describe_volume(volume_id, region, client)
         except ClientError as exc:
             code = exc.response.get("Error", {}).get("Code", "") if hasattr(exc, "response") else ""
             if code in {"InvalidVolume.NotFound", "InvalidVolumeID.NotFound"}:
@@ -480,12 +480,12 @@ def wait_for_volume_deleted(volume_id, region=None, timeout=120, poll_seconds=5)
             "error": f"Timed out after {timeout}s waiting for volume deletion"}
 
 
-def wait_for_instance_state(identifier, expected_state, region=None, timeout=120, poll_seconds=5):
+def wait_for_instance_state(identifier, expected_state, region=None, timeout=120, poll_seconds=5, client=None):
     """Poll EC2 until a start/stop action reaches its expected terminal state."""
     deadline = time.monotonic() + max(1, int(timeout))
     last = None
     while time.monotonic() < deadline:
-        last = describe_instance(identifier, region)
+        last = describe_instance(identifier, region, client)
         if last.get("state") == expected_state:
             return {"verified": True, "expected_state": expected_state, "instance": last}
         time.sleep(max(1, int(poll_seconds)))
