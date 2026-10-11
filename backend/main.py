@@ -1040,7 +1040,11 @@ def aws_configuration(_user=Depends(require_permission(authorization.MANAGE_CONN
 
 @app.put("/api/v1/connections/aws/configuration")
 def update_aws_configuration(request: AwsConfigurationRequest, _user=Depends(require_permission(authorization.MANAGE_CONNECTORS))):
-    supported = {"start_instance", "stop_instance", "reboot_instance"}
+    supported = {
+        "start_instance", "stop_instance", "reboot_instance", "resize_instance",
+        "create_snapshot", "extend_volume", "detach_secondary_nic",
+        "terminate_instance", "delete_snapshot", "delete_volume",
+    }
     allowed = set(request.allowed_actions)
     if not allowed.issubset(supported):
         raise HTTPException(422, "Unsupported AWS operation policy")
