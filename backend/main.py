@@ -668,7 +668,8 @@ def aws_audit(hours: int = 168, _user=Depends(current_user)):
 @app.get("/api/v1/operations/aws/instances/{instance_id}/status")
 def aws_instance_status(instance_id: str, region: str | None = None, _user=Depends(current_user)):
     try:
-        return aws.instance_status(instance_id, region)
+        credentials = credential_store.resolve_provider(_user["organization_id"], "aws")
+        return aws.instance_status(instance_id, region, client=aws.client_for_credentials(credentials, region))
     except Exception as error:
         raise HTTPException(400, f"AWS instance status failed: {type(error).__name__}: {error}") from error
 
@@ -676,8 +677,12 @@ def aws_instance_status(instance_id: str, region: str | None = None, _user=Depen
 @app.post("/api/v1/connections/aws/test")
 def test_aws_connection(_user=Depends(current_user)):
     try:
-        return aws.connection_status()
+        credentials = credential_store.resolve_provider(_user["organization_id"], "aws")
+        result = aws.connection_status(credentials)
+        credential_store.record_test(_user["organization_id"], "aws", True)
+        return result
     except Exception as error:
+        credential_store.record_test(_user["organization_id"], "aws", False, f"{type(error).__name__}: {error}")
         raise HTTPException(400, f"AWS connection failed: {type(error).__name__}: {error}") from error
 
 
@@ -689,7 +694,8 @@ def aws_connection_sync_status(_user=Depends(current_user)):
 @app.post("/api/v1/connections/aws/sync")
 def sync_aws_inventory(_user=Depends(current_user)):
     try:
-        records = aws.sync_inventory(organization_id=_user["organization_id"])
+        credentials = credential_store.resolve_provider(_user["organization_id"], "aws")
+        records = aws.sync_inventory(organization_id=_user["organization_id"], credentials=credentials)
         return {"synchronized": len(records), "status": aws.inventory_status()}
     except Exception as error:
         raise HTTPException(400, f"AWS inventory sync failed: {type(error).__name__}: {error}") from error
@@ -702,6 +708,7 @@ def aws_execute(request: AwsOperationRequest, _user=Depends(require_permission(a
     expected = f"CONFIRM {request.action.upper()} {request.identifier}"
     if request.confirmation.strip() != expected:
         raise HTTPException(422, f"Type exactly: {expected}")
+    credentials = credential_store.resolve_provider(_user["organization_id"], "aws")
     result = aws.execute(
         request.action, request.identifier, approved=True,
         actor=f"enterprise-api:{_user['username']}", requester=_user["username"],
@@ -709,6 +716,7 @@ def aws_execute(request: AwsOperationRequest, _user=Depends(require_permission(a
         instance_type=request.instance_type, volume_id=request.volume_id,
         size_gib=request.size_gib, network_interface_id=request.network_interface_id,
         snapshot_id=request.snapshot_id,
+        client=aws.client_for_credentials(credentials, request.region),
     )
     if not result.get("success"):
         raise HTTPException(400, result.get("error") or "AWS operation failed")
@@ -720,7 +728,8 @@ def aws_provision_preview(request: AwsProvisionRequest, _user=Depends(require_pe
     if not auth.can_cloud_action("provision_instance", _user):
         raise HTTPException(403, "Your role cannot request AWS provisioning")
     try:
-        return aws.preview_provision(request.model_dump(exclude={"confirmation"}), request.region)
+        credentials = credential_store.resolve_provider(_user["organization_id"], "aws")
+        return aws.preview_provision(request.model_dump(exclude={"confirmation"}), request.region, client=aws.client_for_credentials(credentials, request.region))
     except Exception as error:
         raise HTTPException(400, f"Provisioning validation failed: {error}") from error
 
@@ -730,7 +739,8 @@ def aws_provision_options(region: str = "us-east-1", _user=Depends(require_permi
     if not auth.can_cloud_action("provision_instance", _user):
         raise HTTPException(403, "Your role cannot request AWS provisioning")
     try:
-        return aws.provisioning_options(region)
+        credentials = credential_store.resolve_provider(_user["organization_id"], "aws")
+        return aws.provisioning_options(region, client=aws.client_for_credentials(credentials, region))
     except Exception as error:
         raise HTTPException(400, f"Unable to load AWS provisioning options: {error}") from error
 
@@ -742,9 +752,11 @@ def aws_provision_execute(request: AwsProvisionRequest, _user=Depends(require_pe
     expected = f"APPROVE PROVISION {request.name}"
     if request.confirmation.strip() != expected:
         raise HTTPException(422, f"Type exactly: {expected}")
+    credentials = credential_store.resolve_provider(_user["organization_id"], "aws")
     result = aws.provision_instance(request.model_dump(exclude={"confirmation"}), approved=True,
         actor=f"enterprise-api:{_user['username']}", requester=_user["username"],
-        approver=_user["username"], source="enterprise_api", region=request.region)
+        approver=_user["username"], source="enterprise_api", region=request.region,
+        client=aws.client_for_credentials(credentials, request.region))
     if not result.get("success"):
         raise HTTPException(400, result.get("error") or "AWS provisioning failed")
     return result

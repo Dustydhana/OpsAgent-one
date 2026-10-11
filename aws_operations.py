@@ -38,33 +38,46 @@ AMI_FILTERS = {
 AMI_OWNERS = {"Ubuntu Server 24.04 LTS": "099720109477", "Red Hat Enterprise Linux 9": "309956199498"}
 
 
-def _session():
+def _session(credentials=None):
     if boto3 is None:
         raise RuntimeError("boto3 is not installed; run pip install -r requirements.txt")
-    profile = str(config.AWS_PROFILE or "").strip()
-    if profile in {"", "()"}:
-        # An empty AWS_PROFILE environment variable makes botocore search for
-        # a profile literally named "()" instead of using the EC2 IAM role.
-        os.environ.pop("AWS_PROFILE", None)
-        if not os.environ.get("AWS_DEFAULT_PROFILE", "").strip():
-            os.environ.pop("AWS_DEFAULT_PROFILE", None)
-        session = boto3.Session()
+    credentials = credentials or {}
+    using_customer_credentials = bool(credentials)
+    region = credentials.get("region") or config.AWS_REGION
+    if credentials.get("aws_access_key_id") and credentials.get("aws_secret_access_key"):
+        session = boto3.Session(
+            aws_access_key_id=credentials["aws_access_key_id"],
+            aws_secret_access_key=credentials["aws_secret_access_key"],
+            aws_session_token=credentials.get("aws_session_token") or None,
+            region_name=region,
+        )
     else:
-        session = boto3.Session(profile_name=profile)
-    if not config.AWS_ROLE_ARN:
+        profile = str(config.AWS_PROFILE or "").strip()
+        if profile in {"", "()"}:
+            # An empty AWS_PROFILE environment variable makes botocore search for
+            # a profile literally named "()" instead of using the EC2 IAM role.
+            os.environ.pop("AWS_PROFILE", None)
+            if not os.environ.get("AWS_DEFAULT_PROFILE", "").strip():
+                os.environ.pop("AWS_DEFAULT_PROFILE", None)
+            session = boto3.Session()
+        else:
+            session = boto3.Session(profile_name=profile)
+    role_arn = credentials.get("role_arn") if using_customer_credentials else config.AWS_ROLE_ARN
+    external_id = credentials.get("external_id") if using_customer_credentials else config.AWS_EXTERNAL_ID
+    if not role_arn:
         return session
     assume = {
-        "RoleArn": config.AWS_ROLE_ARN,
+        "RoleArn": role_arn,
         "RoleSessionName": config.AWS_ROLE_SESSION_NAME or "opsagent-connector",
     }
-    if config.AWS_EXTERNAL_ID:
-        assume["ExternalId"] = config.AWS_EXTERNAL_ID
-    credentials = session.client("sts", region_name=config.AWS_REGION).assume_role(**assume)["Credentials"]
+    if external_id:
+        assume["ExternalId"] = external_id
+    assumed = session.client("sts", region_name=region).assume_role(**assume)["Credentials"]
     return boto3.Session(
-        aws_access_key_id=credentials["AccessKeyId"],
-        aws_secret_access_key=credentials["SecretAccessKey"],
-        aws_session_token=credentials["SessionToken"],
-        region_name=config.AWS_REGION,
+        aws_access_key_id=assumed["AccessKeyId"],
+        aws_secret_access_key=assumed["SecretAccessKey"],
+        aws_session_token=assumed["SessionToken"],
+        region_name=region,
     )
 
 
@@ -72,25 +85,33 @@ def _client(region=None):
     return _session().client("ec2", region_name=region or config.AWS_REGION)
 
 
-def connection_status():
+def client_for_credentials(credentials=None, region=None):
+    selected_region = region or (credentials or {}).get("region") or config.AWS_REGION
+    return _session(credentials).client("ec2", region_name=selected_region)
+
+
+def connection_status(credentials=None):
     """Validate the configured credential chain without returning secrets."""
-    session = _session()
-    identity = session.client("sts", region_name=config.AWS_REGION).get_caller_identity()
-    _client(config.AWS_REGION).describe_instances(MaxResults=5)
+    credentials = credentials or {}
+    using_customer_credentials = bool(credentials)
+    region = credentials.get("region") or config.AWS_REGION
+    session = _session(credentials)
+    identity = session.client("sts", region_name=region).get_caller_identity()
+    session.client("ec2", region_name=region).describe_instances(MaxResults=5)
     return {
         "connected": True,
         "account_id": identity.get("Account"),
         "principal_arn": identity.get("Arn"),
-        "region": config.AWS_REGION,
-        "regions": list(config.AWS_INVENTORY_REGIONS),
-        "authentication": "cross_account_role" if config.AWS_ROLE_ARN else ("profile" if config.AWS_PROFILE else "default_credential_chain"),
-        "role_arn": config.AWS_ROLE_ARN or None,
+        "region": region,
+        "regions": [region],
+        "authentication": "cross_account_role" if (credentials.get("role_arn") if using_customer_credentials else config.AWS_ROLE_ARN) else ("access_key" if credentials.get("aws_access_key_id") else ("profile" if config.AWS_PROFILE else "default_credential_chain")),
+        "role_arn": (credentials.get("role_arn") if using_customer_credentials else config.AWS_ROLE_ARN) or None,
     }
 
 
-def instance_status(instance_id, region=None):
+def instance_status(instance_id, region=None, client=None):
     """Return the current EC2 state so the UI can verify lifecycle operations."""
-    response = _client(region).describe_instances(InstanceIds=[instance_id])
+    response = (client or _client(region)).describe_instances(InstanceIds=[instance_id])
     reservations = response.get("Reservations", [])
     instances = reservations[0].get("Instances", []) if reservations else []
     status = instances[0].get("State", {}).get("Name", "unknown") if instances else "not-found"

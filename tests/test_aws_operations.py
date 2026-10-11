@@ -8,6 +8,29 @@ def setup_function():
     aws_operations.ops_log.write = lambda *args, **kwargs: None
 
 
+def test_customer_credentials_create_isolated_boto_session(monkeypatch):
+    captured = {}
+
+    class Session:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(aws_operations, "boto3", type("Boto", (), {"Session": Session}))
+    session = aws_operations._session({
+        "aws_access_key_id": "AKIA-CUSTOMER",
+        "aws_secret_access_key": "customer-secret",
+        "region": "ap-south-1",
+    })
+
+    assert isinstance(session, Session)
+    assert captured == {
+        "aws_access_key_id": "AKIA-CUSTOMER",
+        "aws_secret_access_key": "customer-secret",
+        "aws_session_token": None,
+        "region_name": "ap-south-1",
+    }
+
+
 class FakeEC2:
     def __init__(self, state="running"):
         self.instance = {

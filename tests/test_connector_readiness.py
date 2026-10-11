@@ -16,7 +16,7 @@ def test_readiness_reports_missing_configuration_without_secret_values(monkeypat
     aws = next(item for item in result["providers"] if item["id"] == "aws")
     assert slack["status"] == "ready"
     assert aws["status"] == "attention"
-    assert "AWS service identity" in aws["missing"]
+    assert "Encrypted AWS credential" in aws["missing"]
     assert "bot-token-secret-value" not in serialized
     assert "app-token-secret-value" not in serialized
 

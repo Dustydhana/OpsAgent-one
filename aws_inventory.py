@@ -40,10 +40,10 @@ def _optional_map(client, method, result_key, id_key, ids):
         return {}
 
 
-def _ssm_nodes(region):
+def _ssm_nodes(region, session=None):
     """Return managed-node OS details; missing SSM permission is non-fatal."""
     try:
-        ssm = _session().client("ssm", region_name=region)
+        ssm = (session or _session()).client("ssm", region_name=region)
         pages = ssm.get_paginator("describe_instance_information").paginate()
         return {row["InstanceId"]: row for page in pages
                 for row in page.get("InstanceInformationList", []) if row.get("InstanceId")}
@@ -51,7 +51,7 @@ def _ssm_nodes(region):
         return {}
 
 
-def discover_region(region, client=None):
+def discover_region(region, client=None, session=None):
     """Return every non-terminated EC2 instance, including stopped instances."""
     ec2 = client or _client(region)
     try:
@@ -76,7 +76,7 @@ def discover_region(region, client=None):
     except Exception:
         keys = {}
     volumes = _optional_map(ec2, "describe_volumes", "Volumes", "VolumeIds", volume_ids)
-    ssm_nodes = _ssm_nodes(region) if client is None else {}
+    ssm_nodes = _ssm_nodes(region, session) if session is not None or client is None else {}
     output = []
     for item in raw:
         tags = _tags(item.get("Tags"))
@@ -206,11 +206,14 @@ def _persist(records, regions, organization_id=None):
     server_inventory.invalidate_cache(organization_id)
 
 
-def sync(regions=None, organization_id=None):
-    selected = tuple(regions or config.AWS_INVENTORY_REGIONS)
+def sync(regions=None, organization_id=None, credentials=None):
+    credentials = credentials or {}
+    selected = tuple(regions or ([credentials.get("region")] if credentials.get("region") else config.AWS_INVENTORY_REGIONS))
+    session = _session(credentials) if credentials else None
     records = []
     for region in selected:
-        records.extend(discover_region(region))
+        client = session.client("ec2", region_name=region) if session else None
+        records.extend(discover_region(region, client=client, session=session))
     _persist(records, selected, organization_id)
     _STATUS.update(last_sync=__import__("datetime").datetime.now(timezone.utc), last_error=None, instances=len(records))
     return records

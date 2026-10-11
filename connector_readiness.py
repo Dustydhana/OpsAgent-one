@@ -45,14 +45,13 @@ def get_readiness(organization_id: str) -> dict:
         if connection.get("status") in {"configured", "connected", "active"}:
             counts[provider] = counts.get(provider, 0) + 1
 
-    aws_identity = (_present("AWS_ACCESS_KEY_ID") and _present("AWS_SECRET_ACCESS_KEY")) or _present("AWS_WEB_IDENTITY_TOKEN_FILE")
+    aws_identity = counts.get("aws", 0) > 0 or ((_present("AWS_ACCESS_KEY_ID") and _present("AWS_SECRET_ACCESS_KEY")) or _present("AWS_WEB_IDENTITY_TOKEN_FILE"))
     providers = [
         _provider("aws", "Amazon Web Services", [
-            _check("identity", "AWS service identity", aws_identity, "Add a least-privilege AWS access-key pair to Render, or configure workload identity."),
-            _check("region", "AWS region", _present("AWS_REGION") or _present("AWS_DEFAULT_REGION"), "Set AWS_REGION in the backend environment."),
-            _check("role", "Customer role ARN", _present("AWS_ROLE_ARN"), "Set AWS_ROLE_ARN for cross-account access.", required=False),
-            _check("external_id", "Role external ID", _present("AWS_EXTERNAL_ID"), "Set AWS_EXTERNAL_ID when the customer role requires it.", required=False),
-        ], counts.get("aws", 0)),
+            _check("identity", "Encrypted AWS credential", aws_identity, "Select Connect AWS and enter a restricted access key."),
+            _check("region", "AWS region", aws_identity or _present("AWS_REGION") or _present("AWS_DEFAULT_REGION"), "Enter the account's primary AWS region."),
+            _check("role", "Customer role ARN", _present("AWS_ROLE_ARN"), "Add a role ARN only when cross-account role access is required.", required=False),
+        ], counts.get("aws", 0), registration_satisfies=True),
         _provider("slack", "Slack", [
             _check("bot_token", "Slack bot token", _present("SLACK_BOT_TOKEN"), "Set SLACK_BOT_TOKEN in Render."),
             _check("app_token", "Slack app token", _present("SLACK_APP_TOKEN"), "Set SLACK_APP_TOKEN in Render."),

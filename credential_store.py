@@ -114,3 +114,26 @@ def resolve(organization_id: str, credential_id: str) -> dict[str, str]:
     if not row:
         raise KeyError("Credential not found")
     return decrypt_payload(organization_id, row[0])
+
+
+def resolve_provider(organization_id: str, provider: str) -> dict[str, str] | None:
+    """Resolve the newest active tenant credential for backend connector use."""
+    with database.connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("""SELECT encrypted_payload FROM ops_agent.connector_credentials
+                WHERE organization_id=%s AND provider=%s AND status='active'
+                ORDER BY created_at DESC LIMIT 1""", (organization_id, provider))
+            row = cursor.fetchone()
+    return decrypt_payload(organization_id, row[0]) if row else None
+
+
+def record_test(organization_id: str, provider: str, success: bool, error: str | None = None):
+    safe_error = str(error or "")[:500] or None
+    with database.connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("""UPDATE ops_agent.integration_connections SET status=%s,
+                last_tested_at=NOW(),last_error=%s,updated_at=NOW() WHERE connection_id=(
+                    SELECT connection_id FROM ops_agent.integration_connections
+                    WHERE organization_id=%s AND provider=%s ORDER BY created_at DESC LIMIT 1)""",
+                ("connected" if success else "attention", safe_error, organization_id, provider))
+        connection.commit()
