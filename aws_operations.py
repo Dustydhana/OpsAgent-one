@@ -146,7 +146,7 @@ def _audit(action, target, approved, result, actor="unknown", *, request_id=None
                  approver,started_at,completed_at,duration_ms,before_status,after_status,
                  aws_request_id)
                 VALUES (%s,'aws',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                (organization_id, actor, action, target, bool(approved), config.AWS_DRY_RUN,
+                (organization_id, actor, action, target, bool(approved), bool(result.get("dry_run", config.AWS_DRY_RUN)),
                  result.get("success"), result.get("instance_id"), result.get("volume_id"),
                  result.get("snapshot_id"), result.get("message"), _safe_error(result.get("error")),
                  request_id, source or "unknown", requester, approver, started_at, completed_at,
@@ -218,13 +218,14 @@ def audit_recent(hours=24, limit=100, organization_id=None):
     return output
 
 
-def _guard(action, approved):
+def _guard(action, approved, allowed_actions=None):
     if action not in MUTATING_ACTIONS:
         raise ValueError(f"Unknown AWS action: {action}")
     if not approved:
         raise PermissionError("Explicit human approval is required")
-    if action not in config.AWS_ALLOWED_ACTIONS:
-        raise PermissionError(f"{action} is not present in AWS_ALLOWED_ACTIONS")
+    effective_actions = config.AWS_ALLOWED_ACTIONS if allowed_actions is None else set(allowed_actions)
+    if action not in effective_actions:
+        raise PermissionError(f"{action} is not enabled in this AWS connection's execution policy")
 
 
 def resolve_instance(identifier, region=None, client=None):
@@ -495,7 +496,8 @@ def wait_for_instance_state(identifier, expected_state, region=None, timeout=120
 def execute(action, identifier, *, approved=False, actor="unknown", region=None,
             instance_type=None, volume_id=None, size_gib=None,
             network_interface_id=None, snapshot_id=None, description=None, client=None,
-            request_id=None, source=None, requester=None, approver=None, organization_id=None):
+            request_id=None, source=None, requester=None, approver=None, organization_id=None,
+            dry_run=None, allowed_actions=None):
     """Execute one approved, allowlisted EC2 action and return an auditable result."""
     target = str(identifier or "")
     started_at = datetime.now(timezone.utc)
@@ -508,13 +510,14 @@ def execute(action, identifier, *, approved=False, actor="unknown", region=None,
         "approver": str(approver or actor or "") if approved else None,
         "organization_id": organization_id,
     }
+    effective_dry_run = config.AWS_DRY_RUN if dry_run is None else bool(dry_run)
     ops_log.write(
         "aws", "INFO", "operation_started",
         f"action={action}; target={target}; source={inferred_source}; requester={context['requester']}",
         request_id, organization_id,
     )
     try:
-        _guard(action, approved)
+        _guard(action, approved, allowed_actions)
         ec2 = client or _client(region)
         if action == "delete_volume":
             selected_volume = str(volume_id or identifier or "").strip()
@@ -531,9 +534,9 @@ def execute(action, identifier, *, approved=False, actor="unknown", region=None,
                 raise ValueError(
                     f"EBS volume must have tag {required_key}={required_value} before deletion"
                 )
-            response = ec2.delete_volume(VolumeId=selected_volume, DryRun=config.AWS_DRY_RUN)
+            response = ec2.delete_volume(VolumeId=selected_volume, DryRun=effective_dry_run)
             result = {"success": True, "action": action, "volume_id": selected_volume,
-                      "dry_run": config.AWS_DRY_RUN, "before_status": before.get("state"),
+                      "dry_run": effective_dry_run, "before_status": before.get("state"),
                       "after_status": "delete_requested", "aws_request_id": _aws_request_id(response),
                       "response": response}
             _record(action, target, approved, result, actor, context, started_at)
@@ -545,9 +548,9 @@ def execute(action, identifier, *, approved=False, actor="unknown", region=None,
             if not selected_snapshot.startswith("snap-"):
                 raise ValueError("An exact snapshot_id beginning with snap- is required")
             before = describe_snapshot(selected_snapshot, region, ec2)
-            response = ec2.delete_snapshot(SnapshotId=selected_snapshot, DryRun=config.AWS_DRY_RUN)
+            response = ec2.delete_snapshot(SnapshotId=selected_snapshot, DryRun=effective_dry_run)
             result = {"success": True, "action": action, "snapshot_id": selected_snapshot,
-                      "volume_id": before.get("volume_id"), "dry_run": config.AWS_DRY_RUN,
+                      "volume_id": before.get("volume_id"), "dry_run": effective_dry_run,
                       "before_status": before.get("state"), "after_status": "delete_requested",
                       "aws_request_id": _aws_request_id(response), "response": response}
             _record(action, target, approved, result, actor, context, started_at)
@@ -557,7 +560,7 @@ def execute(action, identifier, *, approved=False, actor="unknown", region=None,
         instance_id = instance["InstanceId"]
         before_status = instance.get("State", {}).get("Name")
         after_status = None
-        kwargs = {"DryRun": config.AWS_DRY_RUN}
+        kwargs = {"DryRun": effective_dry_run}
         if action == "create_snapshot":
             attached = [x.get("Ebs", {}).get("VolumeId") for x in instance.get("BlockDeviceMappings", [])]
             attached = [value for value in attached if value]
@@ -580,7 +583,7 @@ def execute(action, identifier, *, approved=False, actor="unknown", region=None,
             after_status = response.get("State") or "snapshot_requested"
             result = {"success": True, "action": action, "instance_id": instance_id,
                       "volume_id": selected_volume, "snapshot_id": response.get("SnapshotId"),
-                      "dry_run": config.AWS_DRY_RUN, "response": response}
+                      "dry_run": effective_dry_run, "response": response}
         elif action == "start_instance":
             response = ec2.start_instances(InstanceIds=[instance_id], **kwargs)
             changes = response.get("StartingInstances", [])
@@ -626,12 +629,12 @@ def execute(action, identifier, *, approved=False, actor="unknown", region=None,
         result = {"success": True, "action": action, "instance_id": instance_id,
                   "volume_id": result.get("volume_id") if action == "create_snapshot" else None,
                   "snapshot_id": result.get("snapshot_id") if action == "create_snapshot" else None,
-                  "dry_run": config.AWS_DRY_RUN, "before_status": before_status,
+                  "dry_run": effective_dry_run, "before_status": before_status,
                   "after_status": after_status, "aws_request_id": _aws_request_id(response),
                   "response": response}
     except ClientError as exc:
         code = exc.response.get("Error", {}).get("Code", "") if hasattr(exc, "response") else ""
-        if config.AWS_DRY_RUN and code == "DryRunOperation":
+        if effective_dry_run and code == "DryRunOperation":
             result = {"success": True, "action": action, "instance_id": target,
                       "dry_run": True, "message": "AWS authorization and request validation succeeded",
                       "after_status": "dry_run_validated"}

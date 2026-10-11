@@ -125,6 +125,9 @@ class TerminationApprovalRequest(BaseModel):
 
 class AwsConfigurationRequest(BaseModel):
     region: str = Field(pattern=r"^[a-z]{2}(?:-gov)?-[a-z]+-\d$")
+    execution_mode: str = Field(pattern=r"^(validation|live)$")
+    allowed_actions: list[str] = Field(default_factory=list)
+    live_confirmation: str = ""
 
 
 class DemoRequest(BaseModel):
@@ -719,6 +722,8 @@ def aws_execute(request: AwsOperationRequest, _user=Depends(require_permission(a
     if request.confirmation.strip() != expected:
         raise HTTPException(422, f"Type exactly: {expected}")
     credentials = credential_store.resolve_provider(_user["organization_id"], "aws")
+    execution_mode = str((credentials or {}).get("execution_mode") or "validation")
+    allowed_actions = {value for value in str((credentials or {}).get("allowed_actions") or "").split(",") if value}
     result = aws.execute(
         request.action, request.identifier, approved=True,
         actor=f"enterprise-api:{_user['username']}", requester=_user["username"],
@@ -727,6 +732,7 @@ def aws_execute(request: AwsOperationRequest, _user=Depends(require_permission(a
         size_gib=request.size_gib, network_interface_id=request.network_interface_id,
         snapshot_id=request.snapshot_id,
         organization_id=_user["organization_id"],
+        dry_run=execution_mode != "live", allowed_actions=allowed_actions,
         client=aws.client_for_credentials(credentials, request.region),
     )
     if not result.get("success"):
@@ -998,16 +1004,29 @@ def aws_configuration(_user=Depends(require_permission(authorization.MANAGE_CONN
     credentials = credential_store.resolve_provider(_user["organization_id"], "aws")
     if not credentials:
         raise HTTPException(404, "AWS connection is not configured")
-    return {"region": credentials.get("region") or "us-east-2"}
+    allowed = [value for value in credentials.get("allowed_actions", "").split(",") if value]
+    return {"region": credentials.get("region") or "us-east-2",
+            "execution_mode": credentials.get("execution_mode") or "validation",
+            "allowed_actions": allowed}
 
 
 @app.put("/api/v1/connections/aws/configuration")
 def update_aws_configuration(request: AwsConfigurationRequest, _user=Depends(require_permission(authorization.MANAGE_CONNECTORS))):
+    supported = {"start_instance", "stop_instance", "reboot_instance"}
+    allowed = set(request.allowed_actions)
+    if not allowed.issubset(supported):
+        raise HTTPException(422, "Unsupported AWS operation policy")
+    if request.execution_mode == "live" and request.live_confirmation != "ENABLE LIVE AWS OPERATIONS":
+        raise HTTPException(422, "Type exactly: ENABLE LIVE AWS OPERATIONS")
     try:
         credential_store.update_provider_fields(
-            _user["organization_id"], _user["username"], "aws", {"region": request.region}
+            _user["organization_id"], _user["username"], "aws", {
+                "region": request.region, "execution_mode": request.execution_mode,
+                "allowed_actions": ",".join(sorted(allowed)),
+            }
         )
-        return {"region": request.region, "updated": True}
+        return {"region": request.region, "execution_mode": request.execution_mode,
+                "allowed_actions": sorted(allowed), "updated": True}
     except KeyError as error:
         raise HTTPException(404, "AWS connection is not configured") from error
 
