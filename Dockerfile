@@ -13,4 +13,4 @@ RUN useradd --create-home --uid 10001 opsagent && chown -R opsagent:opsagent /ap
 USER opsagent
 
 EXPOSE 8000
-CMD ["sh", "-c", "python scripts/validate_production.py && python scripts/bootstrap_database.py && exec uvicorn backend.main:app --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips='*'"]
+CMD ["sh", "-c", "python scripts/validate_production.py && python scripts/bootstrap_database.py && exec python scripts/run_api.py"]
