@@ -12,7 +12,12 @@ def test_slack(credentials: dict[str, str]) -> dict:
     if not token:
         raise ValueError("Slack bot token is required")
     response = WebClient(token=token).auth_test()
-    return {"connected": True, "provider": "slack", "team": response.get("team"), "bot_user_id": response.get("user_id")}
+    channels = [value.strip() for value in credentials.get("channels", "").split(",") if value.strip()]
+    approvers = [value.strip() for value in credentials.get("approvers", "").split(",") if value.strip()]
+    return {"connected": True, "provider": "slack", "team": response.get("team"),
+            "bot_user_id": response.get("user_id"), "monitored_channels": len(channels),
+            "approvers": len(approvers), "socket_mode": bool(credentials.get("app_token")),
+            "incoming_webhook": bool(credentials.get("webhook_url"))}
 
 
 def test_email(credentials: dict[str, str]) -> dict:

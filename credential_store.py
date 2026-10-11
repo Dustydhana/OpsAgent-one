@@ -55,6 +55,23 @@ def _safe_metadata(secrets: dict[str, str]) -> dict:
     return {"fields": sorted(secrets), "field_count": len(secrets)}
 
 
+def _validate_provider_credentials(provider: str, secrets: dict[str, str]):
+    required = {
+        "aws": {"aws_access_key_id", "aws_secret_access_key", "region"},
+        "slack": {"bot_token", "app_token", "channels", "approvers"},
+        "gmail": {"username", "app_password", "imap_host"},
+        "vmware": {"endpoint", "username", "password"},
+    }.get(provider, set())
+    missing = sorted(key for key in required if not secrets.get(key, "").strip())
+    if missing:
+        raise ValueError(f"Missing required credential fields: {', '.join(missing)}")
+    if provider == "slack":
+        if not secrets["bot_token"].startswith("xoxb-"):
+            raise ValueError("Slack bot token must begin with xoxb-")
+        if not secrets["app_token"].startswith("xapp-"):
+            raise ValueError("Slack app token must begin with xapp-")
+
+
 def create_connection(organization_id: str, actor: str, provider: str, display_name: str,
                       connection_type: str, endpoint: str | None, configuration: dict,
                       secrets: dict[str, str]):
@@ -67,6 +84,7 @@ def create_connection(organization_id: str, actor: str, provider: str, display_n
         raise ValueError("Provide between 1 and 20 credential fields")
     if any(not key or len(key) > 80 or len(value) > 8000 for key, value in clean.items()):
         raise ValueError("Credential field limits were exceeded")
+    _validate_provider_credentials(provider, clean)
     credential_id = f"cred_{uuid.uuid4().hex}"
     connection_id = f"con_{uuid.uuid4().hex}"
     encrypted = encrypt_payload(organization_id, clean)

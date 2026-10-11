@@ -29,3 +29,24 @@ def test_short_master_key_is_rejected(monkeypatch):
         assert False, "short keys must fail"
     except credential_store.CredentialVaultUnavailable:
         pass
+
+
+def test_slack_credentials_require_tokens_channels_and_approvers():
+    try:
+        credential_store._validate_provider_credentials("slack", {"bot_token": "xoxb-test"})
+        assert False, "incomplete Slack credentials must fail"
+    except ValueError as error:
+        assert "app_token" in str(error)
+        assert "channels" in str(error)
+        assert "approvers" in str(error)
+
+
+def test_slack_token_prefixes_are_validated():
+    try:
+        credential_store._validate_provider_credentials("slack", {
+            "bot_token": "wrong", "app_token": "xapp-test",
+            "channels": "C123", "approvers": "U123",
+        })
+        assert False, "invalid Slack token prefix must fail"
+    except ValueError as error:
+        assert "xoxb-" in str(error)
