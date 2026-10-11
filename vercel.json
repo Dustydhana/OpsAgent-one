@@ -3,5 +3,11 @@
   "framework": null,
   "buildCommand": "npm --prefix frontend ci && npm --prefix frontend run build",
   "outputDirectory": "frontend/dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://opsagent-api.onrender.com/api/:path*"
+    },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

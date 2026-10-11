@@ -13,11 +13,11 @@ services:
       - key: OPSAGENT_API_SECRET
         sync: false
       - key: OPSAGENT_FRONTEND_URL
-        value: https://opsagent-api.onrender.com
+        value: https://ops-agent-one.vercel.app
       - key: OPSAGENT_OAUTH_CALLBACK_BASE
-        value: https://opsagent-api.onrender.com
+        value: https://ops-agent-one.vercel.app
       - key: OPSAGENT_CORS_ORIGINS
-        value: https://opsagent-api.onrender.com
+        value: https://ops-agent-one.vercel.app
       - key: OPSAGENT_DEFAULT_ORGANIZATION_ID
         value: org-default
       - key: OPSAGENT_COOKIE_SECURE
