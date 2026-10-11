@@ -3,6 +3,13 @@
 import os
 import sys
 import traceback
+from pathlib import Path
+
+
+# When executed as ``python scripts/run_api.py``, Python otherwise places only
+# the scripts directory on sys.path. Add the repository root so ``backend`` and
+# the existing top-level application modules resolve inside the container.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
 def main() -> None:
