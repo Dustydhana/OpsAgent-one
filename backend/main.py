@@ -1071,6 +1071,20 @@ def test_tenant_integration(provider: str, _user=Depends(require_permission(auth
         raise HTTPException(400, f"{provider.title()} connection failed: {type(error).__name__}: {error}") from error
 
 
+@app.post("/api/v1/integrations/connections/{provider}/disconnect")
+def disconnect_tenant_integration(provider: str, _user=Depends(require_permission(authorization.MANAGE_CONNECTORS))):
+    return credential_store.disconnect_provider(
+        _user["organization_id"], _user["username"], provider.lower()
+    )
+
+
+@app.delete("/api/v1/integrations/connections/{provider}")
+def delete_tenant_integration(provider: str, _user=Depends(require_permission(authorization.MANAGE_CONNECTORS))):
+    return credential_store.delete_provider(
+        _user["organization_id"], _user["username"], provider.lower()
+    )
+
+
 @app.get("/api/v1/gateways")
 def customer_gateways(_user=Depends(current_user)):
     return integration_store.list_gateways(_user["organization_id"])

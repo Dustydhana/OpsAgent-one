@@ -182,6 +182,8 @@ function connectorIcon(provider: string): ReactNode {
     case "dell": return <SiDell />;
     case "hpe": return <GrHpe />;
     case "slack": return <FaSlack />;
+    case "gmail": return <SiGmail />;
+    case "grafana": return <SiGrafana />;
     case "windows": return <FaWindows />;
     case "linux": return <SiLinux />;
     default: return <Plug />;
@@ -3452,6 +3454,18 @@ function ConnectionsCenter() {
       setAwsConnection(null);setSelectedConnector(null);setStatus("AWS connection, credentials and synchronized inventory removed.");
     }catch(error){setStatus((error as Error).message)}finally{setSavingConnector(false)}
   }
+  async function testPlatform(provider:string){
+    setStatus(`Verifying ${provider}…`);
+    try{await api(`/integrations/connections/${provider}/test`,{method:"POST"});setConnectionRecords((current)=>current.map((record)=>record.provider===provider?{...record,status:"connected"}:record));setStatus(`${provider} connection verified.`)}catch(error){setStatus((error as Error).message)}
+  }
+  async function disconnectPlatform(provider:string){
+    if(!window.confirm(`Disconnect ${provider}? Its stored credentials will be revoked.`))return;
+    try{await api(`/integrations/connections/${provider}/disconnect`,{method:"POST"});setConnectionRecords((current)=>current.map((record)=>record.provider===provider?{...record,status:"disconnected"}:record));setStatus(`${provider} disconnected.`)}catch(error){setStatus((error as Error).message)}
+  }
+  async function deletePlatform(provider:string){
+    if(!window.confirm(`Permanently delete the ${provider} connection and encrypted credentials?`))return;
+    try{await api(`/integrations/connections/${provider}`,{method:"DELETE"});setConnectionRecords((current)=>current.filter((record)=>record.provider!==provider));setStatus(`${provider} connection deleted.`)}catch(error){setStatus((error as Error).message)}
+  }
   async function saveAwsPolicy(event:FormEvent){
     event.preventDefault();setSavingConnector(true);setStatus("");
     try{
@@ -3469,8 +3483,8 @@ function ConnectionsCenter() {
     <section className="connections-center">
       <div className="connections-hero">
         <div>
-          <p className="eyebrow">OPERATIONS CONNECTOR CATALOG</p>
-          <h2>Connect every operation target</h2>
+          <p className="eyebrow">CONNECTION PLATFORMS</p>
+          <h2>Connect and manage every platform</h2>
           <p>
             Operate customer cloud, virtualization, endpoint and server platforms through
             tenant-scoped identities, private gateways, approval and audit controls.
@@ -3489,8 +3503,8 @@ function ConnectionsCenter() {
         {showReadiness&&<footer><ShieldCheck/><span>{readiness.security}</span></footer>}
       </section>}
       <section className="connector-quickstart">
-        <div className="connector-logo"><Cloud /></div>
-        <div><span className="eyebrow">RECOMMENDED CONNECTOR</span><h3>Connect Amazon Web Services</h3><p>Enter a restricted AWS access key and region. OpsAgent encrypts it, verifies access and imports inventory automatically. Role ARN is optional.</p></div>
+        <div className="connector-logo aws"><FaAws /></div>
+        <div><span className="eyebrow">CLOUD PLATFORM</span><h3>Amazon Web Services</h3><p>Configure encrypted IAM credentials, inventory region and guarded execution policy.</p></div>
         {connectionRecords.some((record)=>record.provider==="aws"&&record.status!=="disconnected") ? <div className="connector-result"><span><CheckCircle2 /> {awsConnection?"Connected":"Configured"}</span><strong>{String(awsConnection?.account_id || "AWS account")}</strong><small>{String(awsConnection?.authentication || "Encrypted credentials")}</small><button type="button" onClick={()=>openConnector("aws","Amazon Web Services","Change the AWS inventory region without re-entering the protected access key.")}>Manage</button><button type="button" onClick={testAwsConnection} disabled={testingAws}>{testingAws?"Testing…":"Verify"}</button><button type="button" onClick={disconnectAws} disabled={savingConnector}>Disconnect</button><button type="button" onClick={deleteAws} disabled={savingConnector}>Delete</button></div> : <button onClick={beginAwsConnection}>{connectionRecords.some((record)=>record.provider==="aws")?"Reconnect AWS":"Connect AWS"}</button>}
       </section>
       {showAwsPolicy&&<div className="connector-wizard-backdrop" role="presentation" onMouseDown={()=>setShowAwsPolicy(false)}><section className="connector-wizard aws-connector-wizard" role="dialog" aria-modal="true" onMouseDown={(event)=>event.stopPropagation()}><header><div><span>MANAGE CUSTOMER CONNECTION</span><h2>AWS connection and execution policy</h2><p>Configure inventory location and guarded operations without exposing the encrypted access key.</p></div><button onClick={()=>setShowAwsPolicy(false)} aria-label="Close"><X/></button></header><form onSubmit={saveAwsPolicy}><label>Primary AWS region<select value={awsPolicy.region} onChange={(event)=>setAwsPolicy({...awsPolicy,region:event.target.value})}>{credentialFields("aws").find((field)=>field.key==="region")?.options?.map((option)=><option key={option}>{option}</option>)}</select></label><label>Execution mode<select value={awsPolicy.execution_mode} onChange={(event)=>setAwsPolicy({...awsPolicy,execution_mode:event.target.value,live_confirmation:""})}><option value="validation">Validation only (AWS DryRun)</option><option value="live">Live operations</option></select><small>Live mode can change real AWS resources after RBAC and exact confirmation checks.</small></label><fieldset className="aws-policy-actions"><legend>Allowed operations</legend>{[["start_instance","Start instances"],["stop_instance","Stop instances"],["reboot_instance","Reboot instances"]].map(([key,label])=><label key={key}><input type="checkbox" checked={awsPolicy.allowed_actions.split(",").includes(key)} onChange={(event)=>{const values=new Set(awsPolicy.allowed_actions.split(",").filter(Boolean));event.target.checked?values.add(key):values.delete(key);setAwsPolicy({...awsPolicy,allowed_actions:[...values].join(",")});}}/><span>{label}</span></label>)}</fieldset>{awsPolicy.execution_mode==="live"&&<label>Live-operation acknowledgement<input value={awsPolicy.live_confirmation} onChange={(event)=>setAwsPolicy({...awsPolicy,live_confirmation:event.target.value})} placeholder="ENABLE LIVE AWS OPERATIONS"/><small>Type exactly: ENABLE LIVE AWS OPERATIONS</small></label>}<div className="connector-secret-notice"><ShieldCheck/><span><b>Credential remains protected</b><small>The AWS access key and secret are encrypted and are never returned to the browser.</small></span></div>{status&&<p className="connector-wizard-status">{status}</p>}<footer><button type="button" onClick={()=>setShowAwsPolicy(false)}>Cancel</button><button className="primary-action" disabled={savingConnector||!awsPolicy.allowed_actions||awsPolicy.execution_mode==="live"&&awsPolicy.live_confirmation!=="ENABLE LIVE AWS OPERATIONS"}>{savingConnector?"Saving and verifying…":"Save policy and synchronize"}</button></footer></form></section></div>}
@@ -3513,7 +3527,7 @@ function ConnectionsCenter() {
                   <p>{description}</p>
                   <small>{connectionRecords.find((record)=>record.provider===key)?.status==="connected" ? "Connected · credential protected" : connectionRecords.some((record)=>record.provider===key) ? "Saved · verification required" : "Available to configure"}</small>
                 </div>
-                <button className={`connector-setup-action ${connectionRecords.find((record)=>record.provider===key)?.status==="connected"?"connected":""}`} onClick={() => openConnector(key,name,description)}>{connectionRecords.find((record)=>record.provider===key)?.status==="connected"?"Manage":connectionRecords.some((record)=>record.provider===key)?"Verify":"Connect"}</button>
+                {connectionRecords.some((record)=>record.provider===key&&record.status!=="disconnected")?<div className="connector-card-actions"><button className="connector-setup-action connected" onClick={() => openConnector(key,name,description)}>Manage</button><button onClick={()=>testPlatform(key)}>Verify</button><button onClick={()=>disconnectPlatform(key)}>Disconnect</button><button className="danger" onClick={()=>deletePlatform(key)}>Delete</button></div>:<button className="connector-setup-action" onClick={() => openConnector(key,name,description)}>{connectionRecords.some((record)=>record.provider===key)?"Reconnect":"Connect"}</button>}
               </article>
             ))}
           </div>

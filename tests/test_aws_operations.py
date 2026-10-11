@@ -101,7 +101,7 @@ def test_mutation_requires_allowlist(monkeypatch, tmp_path):
     _configure(monkeypatch, tmp_path, set())
     result = aws_operations.execute("reboot_instance", "i-test", approved=True, client=FakeEC2())
     assert not result["success"]
-    assert "AWS_ALLOWED_ACTIONS" in result["error"]
+    assert "execution policy" in result["error"]
 
 
 def test_reboot_executes(monkeypatch, tmp_path):
