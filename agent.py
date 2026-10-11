@@ -296,7 +296,7 @@ def answer_investigation_question(result, question, alert_text="Manual dashboard
         return f"I couldn't answer that question right now: {exc}"
 
 
-def answer_infrastructure_question(question, inventory_records=None, conversation_history=None, requester="unknown", persona="Senior Infrastructure Architect"):
+def answer_infrastructure_question(question, inventory_records=None, conversation_history=None, requester="unknown", persona="Senior Infrastructure Architect", organization_id=None):
     """Answer general infrastructure questions as a senior cross-platform architect."""
     if not question or not question.strip():
         return "How can I help with your infrastructure?"
@@ -339,10 +339,10 @@ def answer_infrastructure_question(question, inventory_records=None, conversatio
         response = client.chat.completions.create(
             model=config.OPENAI_MODEL, messages=messages, temperature=0.25,
         )
-        ai_usage.record(response,requester=requester,activity="infrastructure_chat",request_text=question)
+        ai_usage.record(response,requester=requester,activity="infrastructure_chat",request_text=question,organization_id=organization_id)
         return (response.choices[0].message.content or "").strip() or "I couldn't generate an answer."
     except Exception as exc:
-        ai_usage.record(requester=requester,activity="infrastructure_chat",request_text=question,error=exc)
+        ai_usage.record(requester=requester,activity="infrastructure_chat",request_text=question,error=exc,organization_id=organization_id)
         return f"I couldn't answer that infrastructure question right now: {exc}"
 
 

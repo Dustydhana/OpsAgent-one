@@ -2785,7 +2785,9 @@ function Usage() {
   const [currency, setCurrency] = useState("USD");
   const defaultRates: Record<string, number> = { USD: 1, INR: 83, EUR: .92, GBP: .79 };
   const [rate, setRate] = useState(1);
+  const [error, setError] = useState("");
   useEffect(() => {
+    setError("");
     Promise.all([
       api<Record<string, number>>(`/usage/summary?hours=${hours}`),
       api<Record<string, unknown>[]>(`/usage/events?hours=${hours}`),
@@ -2794,8 +2796,9 @@ function Usage() {
       setSummary(a);
       setEvents(b);
       setBreakdown(c);
-    });
+    }).catch((failure) => setError((failure as Error).message));
   }, [hours]);
+  if (error) return <section className="product-page"><div className="connector-error"><AlertTriangle/><div><strong>AI usage data is unavailable</strong><p>{error}</p></div></div></section>;
   if (!summary) return <div className="skeleton">Loading usage…</div>;
   const symbols: Record<string, string> = { USD: "$", INR: "₹", EUR: "€", GBP: "£" };
   const convertedCost = Number(summary.cost_usd || 0) * rate;

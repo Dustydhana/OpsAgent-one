@@ -637,10 +637,15 @@ def send_chat(request: ChatRequest, _user=Depends(current_user)):
     else:
         answer = agent.answer_infrastructure_question(
             model_message, inventory_records=_records(_user["organization_id"]), conversation_history=history,
-            requester=_user["username"], persona=request.persona,
+            requester=_user["username"], persona=request.persona, organization_id=_user["organization_id"],
         )
     chat_store.append(request.session_id, "assistant", answer, _user["username"], _user["organization_id"])
     chat_store.set_persona(request.session_id, request.persona, _user["username"], _user["organization_id"])
+    ops_log.write(
+        "chat", "INFO", "response_completed",
+        f"session={request.session_id}; requester={_user['username']}",
+        request.session_id, _user["organization_id"],
+    )
     return {"role": "assistant", "content": answer}
 
 

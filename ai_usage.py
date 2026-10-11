@@ -1,34 +1,41 @@
 """Relational OpenAI call, token, and estimated-cost accounting."""
 import config, database
 
-def _backfill_unmetered_chat_history():
+def _organization(value=None):
+    organization_id = str(value or config.DEFAULT_ORGANIZATION_ID or "").strip()
+    if not organization_id:
+        raise ValueError("organization_id is required")
+    return organization_id
+
+
+def _backfill_unmetered_chat_history(organization_id):
     """Expose pre-metering chat activity without inventing token or cost data."""
     with database.connect() as connection:
         with connection.cursor() as cursor:
-            cursor.execute("SELECT COUNT(*) FROM ops_agent.ai_usage_events")
+            cursor.execute("SELECT COUNT(*) FROM ops_agent.ai_usage_events WHERE organization_id=%s", (organization_id,))
             if cursor.fetchone()[0] == 0:
                 cursor.execute("""INSERT INTO ops_agent.ai_usage_events
-                    (occurred_at,requester,activity,request_text,model,input_tokens,output_tokens,total_tokens,estimated_cost_usd,success)
-                    SELECT m.created_at,s.requester,'historical_chat_unmetered',m.content,'local-rules',0,0,0,0,TRUE
+                    (organization_id,occurred_at,requester,activity,request_text,model,input_tokens,output_tokens,total_tokens,estimated_cost_usd,success)
+                    SELECT %s,m.created_at,s.requester,'historical_chat_unmetered',m.content,'local-rules',0,0,0,0,TRUE
                     FROM ops_agent.chat_messages m JOIN ops_agent.chat_sessions s ON s.session_id=m.session_id
-                    WHERE m.role='user'""")
+                    WHERE m.role='user' AND s.organization_id=%s""", (organization_id, organization_id))
         connection.commit()
 
-def record_local(*, requester="unknown", activity="local_chat", request_text=""):
+def record_local(*, requester="unknown", activity="local_chat", request_text="", organization_id=None):
     """Record a locally handled interaction without pretending it consumed AI tokens."""
     try:
         database.initialize()
         with database.connect() as connection:
             with connection.cursor() as cursor:
                 cursor.execute("""INSERT INTO ops_agent.ai_usage_events
-                    (requester,activity,request_text,model,input_tokens,output_tokens,total_tokens,estimated_cost_usd,success)
-                    VALUES (%s,%s,%s,'local-rules',0,0,0,0,TRUE)""",
-                    (str(requester or "unknown")[:128],str(activity or "local_chat")[:128],str(request_text or "")[:2000]))
+                    (organization_id,requester,activity,request_text,model,input_tokens,output_tokens,total_tokens,estimated_cost_usd,success)
+                    VALUES (%s,%s,%s,%s,'local-rules',0,0,0,0,TRUE)""",
+                    (_organization(organization_id),str(requester or "unknown")[:128],str(activity or "local_chat")[:128],str(request_text or "")[:2000]))
             connection.commit()
     except Exception:
         pass
 
-def record(response=None, *, requester="unknown", activity="unknown", request_text="", error=None):
+def record(response=None, *, requester="unknown", activity="unknown", request_text="", error=None, organization_id=None):
     try:
         usage=getattr(response,"usage",None)
         input_tokens=int(getattr(usage,"prompt_tokens",0) or getattr(usage,"input_tokens",0) or 0)
@@ -40,18 +47,18 @@ def record(response=None, *, requester="unknown", activity="unknown", request_te
         with database.connect() as connection:
             with connection.cursor() as cursor:
                 cursor.execute("""INSERT INTO ops_agent.ai_usage_events
-                    (requester,activity,request_text,model,input_tokens,output_tokens,total_tokens,estimated_cost_usd,success,error_message)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                    (str(requester or "unknown")[:128],str(activity or "unknown")[:128],str(request_text or "")[:2000],model[:128],
+                    (organization_id,requester,activity,request_text,model,input_tokens,output_tokens,total_tokens,estimated_cost_usd,success,error_message)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    (_organization(organization_id),str(requester or "unknown")[:128],str(activity or "unknown")[:128],str(request_text or "")[:2000],model[:128],
                      input_tokens,output_tokens,total_tokens,cost,error is None,str(error or "")[:1000] or None))
             connection.commit()
     except Exception:
         pass
 
 def summary(hours=24, organization_id=None):
-    organization_id=str(organization_id or config.DEFAULT_ORGANIZATION_ID or "").strip()
+    organization_id=_organization(organization_id)
     database.initialize()
-    _backfill_unmetered_chat_history()
+    _backfill_unmetered_chat_history(organization_id)
     with database.connect() as connection:
         with connection.cursor() as cursor:
             cursor.execute("""SELECT COUNT(id),COUNT(id) FILTER (WHERE model<>'local-rules'),COALESCE(SUM(input_tokens),0),COALESCE(SUM(output_tokens),0),

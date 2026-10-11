@@ -39,7 +39,12 @@ def read():
 
 def display_rows():
     data = read()
-    names = ("slack", "grafana_polling", "queue_worker", "smtp", "ssh", "inbound_email", "database")
+    # A successful read above is itself a live database health check. Do not
+    # leave the control-plane database in an "Unknown" state just because no
+    # background worker writes a heartbeat for it. SSH is a transport option,
+    # not a platform agent, so it does not belong in this service-health list.
+    data["database"] = {"status": "healthy", "details": "PostgreSQL query succeeded", "last_heartbeat": datetime.now().astimezone()}
+    names = ("database", "slack", "grafana_polling", "queue_worker", "smtp", "inbound_email")
     rows = []
     for name in names:
         item = data.get(name, {})
