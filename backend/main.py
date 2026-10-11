@@ -1010,6 +1010,28 @@ def update_aws_configuration(request: AwsConfigurationRequest, _user=Depends(req
         raise HTTPException(404, "AWS connection is not configured") from error
 
 
+@app.post("/api/v1/connections/aws/disconnect")
+def disconnect_aws(_user=Depends(require_permission(authorization.MANAGE_CONNECTORS))):
+    return credential_store.disconnect_provider(
+        _user["organization_id"], _user["username"], "aws"
+    )
+
+
+@app.delete("/api/v1/connections/aws")
+def delete_aws(_user=Depends(require_permission(authorization.MANAGE_CONNECTORS))):
+    result = credential_store.delete_provider(
+        _user["organization_id"], _user["username"], "aws"
+    )
+    # Remove the disconnected provider's current discovery cache. Immutable
+    # operation and organization audit evidence is intentionally retained.
+    with database.connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM ops_agent.aws_ec2_inventory WHERE organization_id=%s", (_user["organization_id"],))
+            cursor.execute("DELETE FROM ops_agent.server_inventory WHERE organization_id=%s AND vm_type='aws'", (_user["organization_id"],))
+        connection.commit()
+    return result
+
+
 @app.post("/api/v1/integrations/connections/{provider}/test")
 def test_tenant_integration(provider: str, _user=Depends(require_permission(authorization.MANAGE_CONNECTORS))):
     provider = provider.lower()

@@ -177,6 +177,42 @@ def update_provider_fields(organization_id: str, actor: str, provider: str, upda
     return {"provider": provider, "updated_fields": sorted(clean)}
 
 
+def disconnect_provider(organization_id: str, actor: str, provider: str):
+    """Revoke active credentials while retaining connector and audit history."""
+    with database.connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("""UPDATE ops_agent.connector_credentials SET status='revoked',updated_at=NOW()
+                WHERE organization_id=%s AND provider=%s AND status='active'""", (organization_id, provider))
+            revoked = cursor.rowcount
+            cursor.execute("""UPDATE ops_agent.integration_connections SET status='disconnected',
+                updated_at=NOW() WHERE organization_id=%s AND provider=%s""", (organization_id, provider))
+            cursor.execute("""INSERT INTO ops_agent.organization_audit
+                (organization_id,actor,action,target,details)
+                VALUES (%s,%s,'connector_disconnected',%s,%s::jsonb)""",
+                (organization_id, actor, provider, json.dumps({"revoked_credentials": revoked})))
+        connection.commit()
+    return {"provider": provider, "disconnected": True, "revoked_credentials": revoked}
+
+
+def delete_provider(organization_id: str, actor: str, provider: str):
+    """Permanently remove stored connector credentials and registrations."""
+    with database.connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("""DELETE FROM ops_agent.integration_connections
+                WHERE organization_id=%s AND provider=%s""", (organization_id, provider))
+            connections = cursor.rowcount
+            cursor.execute("""DELETE FROM ops_agent.connector_credentials
+                WHERE organization_id=%s AND provider=%s""", (organization_id, provider))
+            credentials = cursor.rowcount
+            cursor.execute("""INSERT INTO ops_agent.organization_audit
+                (organization_id,actor,action,target,details)
+                VALUES (%s,%s,'connector_deleted',%s,%s::jsonb)""",
+                (organization_id, actor, provider,
+                 json.dumps({"connections": connections, "credentials": credentials})))
+        connection.commit()
+    return {"provider": provider, "deleted": True, "connections": connections, "credentials": credentials}
+
+
 def record_test(organization_id: str, provider: str, success: bool, error: str | None = None):
     safe_error = str(error or "")[:500] or None
     with database.connect() as connection:
