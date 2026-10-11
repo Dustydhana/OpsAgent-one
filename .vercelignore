@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+.venv/
+**/__pycache__/
+**/*.pyc
+frontend/node_modules/
+frontend/dist/
+.pytest_cache/
+tests/
+PostgreSQL17-data-backup*/
+opsagent_backup/

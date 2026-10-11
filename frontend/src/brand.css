@@ -1,0 +1,58 @@
+.brand-mark.ops-logo {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  flex: 0 0 96px;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+  border-radius: 50%;
+}
+.brand-mark.ops-logo.small {
+  width: 72px;
+  height: 72px;
+  flex-basis: 72px;
+}
+.brand-mark.ops-logo img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.logo .ops-logo + div strong {
+  letter-spacing: -0.025em;
+}
+.logo .ops-logo + div strong:after {
+  content: " AI";
+  font-size: 8px;
+  vertical-align: top;
+  margin-left: 4px;
+  color: #8f80ff;
+  letter-spacing: 0.08em;
+}
+
+/* Responsive logo scale: readable workflow labels without overwhelming each layout. */
+.public-home .public-brand .brand-mark.ops-logo {
+  width: 78px !important;
+  height: 78px !important;
+  flex-basis: 78px !important;
+}
+.public-home .orbit-brand .brand-mark.ops-logo {
+  width: 112px !important;
+  height: 112px !important;
+  flex-basis: 112px !important;
+}
+.public-home .logo-story-result .brand-mark.ops-logo {
+  width: 120px !important;
+  height: 120px !important;
+  flex-basis: 120px !important;
+}
+.asset-product-mark {
+  padding: 0;
+  background: transparent !important;
+}
+.asset-product-mark img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

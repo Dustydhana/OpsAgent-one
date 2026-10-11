@@ -1,0 +1,35 @@
+.organization select {
+  width: 100%;
+  background: #171d28;
+  border: 1px solid #293140;
+  color: #dbe3ef;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+.invitation-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 22px;
+}
+.invitation-panel form {
+  display: flex;
+  gap: 8px;
+}
+.invitation-panel input,
+.invitation-panel select {
+  background: #0b1018;
+  color: #e5eaf2;
+  border: 1px solid #2b3545;
+  border-radius: 7px;
+  padding: 10px;
+}
+.invitation-panel button {
+  border: 0;
+  border-radius: 7px;
+  background: #735fff;
+  color: white;
+  padding: 10px 14px;
+}

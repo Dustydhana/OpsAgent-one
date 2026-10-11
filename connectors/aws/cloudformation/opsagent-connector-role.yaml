@@ -1,0 +1,233 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Least-privilege cross-account IAM role for the OpsAgent AWS connector
+
+Parameters:
+  OpsAgentPrincipalArn:
+    Type: String
+    Description: ARN of the IAM role or user used by the OpsAgent control plane
+    AllowedPattern: '^arn:(aws|aws-us-gov|aws-cn):iam::[0-9]{12}:(role|user)/.+$'
+  ExternalId:
+    Type: String
+    NoEcho: true
+    MinLength: 16
+    Description: Unique external ID generated for this customer connection
+  EnableGuardedOperations:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Allow start, stop and reboot only on instances tagged OpsAgentManaged=true
+  EnableSsmOperations:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Allow approved OpsAgent SSM documents on instances tagged OpsAgentManaged=true
+  EnableProvisioning:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Allow approval-gated creation of tagged EC2 instances with the OpsAgent managed instance profile
+  EnableTermination:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Allow MFA-approved termination only on instances tagged OpsAgentManaged=true
+
+Conditions:
+  OperationsEnabled: !Equals [!Ref EnableGuardedOperations, "true"]
+  SsmOperationsEnabled: !Equals [!Ref EnableSsmOperations, "true"]
+  ProvisioningEnabled: !Equals [!Ref EnableProvisioning, "true"]
+  TerminationEnabled: !Equals [!Ref EnableTermination, "true"]
+
+Resources:
+  OpsAgentManagedInstanceRole:
+    Type: AWS::IAM::Role
+    Condition: ProvisioningEnabled
+    Properties:
+      RoleName: OpsAgentManagedInstanceRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: OpsAgentDomainJoinSecretRead
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadOnlyOpsAgentDomainJoinSecrets
+                Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:opsagent/domain-join/*
+      Tags:
+        - { Key: ManagedBy, Value: OpsAgent }
+  OpsAgentManagedInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Condition: ProvisioningEnabled
+    Properties:
+      InstanceProfileName: OpsAgentManagedInstanceProfile
+      Roles: [!Ref OpsAgentManagedInstanceRole]
+  OpsAgentConnectorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: OpsAgentConnectorRole
+      Description: Read AWS inventory and execute explicitly enabled OpsAgent operations
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref OpsAgentPrincipalArn
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref ExternalId
+      Policies:
+        - PolicyName: OpsAgentInventoryReadOnly
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadEC2Inventory
+                Effect: Allow
+                Action:
+                  - ec2:DescribeAvailabilityZones
+                  - ec2:DescribeImages
+                  - ec2:DescribeInstanceStatus
+                  - ec2:DescribeInstances
+                  - ec2:DescribeInstanceAttribute
+                  - ec2:DescribeInstanceTypes
+                  - ec2:DescribeInternetGateways
+                  - ec2:DescribeKeyPairs
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DescribeRegions
+                  - ec2:DescribeRouteTables
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeSnapshots
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeTags
+                  - ec2:DescribeVolumes
+                  - ec2:DescribeVolumesModifications
+                  - ec2:DescribeVpcs
+                Resource: "*"
+              - Sid: ReadManagedNodeOperatingSystem
+                Effect: Allow
+                Action:
+                  - ssm:DescribeInstanceInformation
+                Resource: "*"
+        - !If
+          - OperationsEnabled
+          - PolicyName: OpsAgentTaggedInstanceOperations
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Sid: OperateExplicitlyManagedInstances
+                  Effect: Allow
+                  Action:
+                    - ec2:RebootInstances
+                    - ec2:StartInstances
+                    - ec2:StopInstances
+                  Resource: !Sub arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*
+                  Condition:
+                    StringEquals:
+                      ec2:ResourceTag/OpsAgentManaged: "true"
+          - !Ref AWS::NoValue
+        - !If
+          - ProvisioningEnabled
+          - PolicyName: OpsAgentGuardedProvisioning
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Sid: ProvisionOnlyManagedInstances
+                  Effect: Allow
+                  Action: ec2:RunInstances
+                  Resource: !Sub arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*
+                  Condition:
+                    StringEquals:
+                      aws:RequestTag/OpsAgentManaged: "true"
+                      aws:RequestTag/ManagedBy: OpsAgent
+                      ec2:InstanceType: [t3.small, t3.medium, t3.large, m6i.large, m6i.xlarge]
+                - Sid: UseResourcesRequiredForProvisioning
+                  Effect: Allow
+                  Action: ec2:RunInstances
+                  Resource:
+                    - !Sub arn:${AWS::Partition}:ec2:*::image/*
+                    - !Sub arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:network-interface/*
+                    - !Sub arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:security-group/*
+                    - !Sub arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:key-pair/*
+                    - !Sub arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:subnet/*
+                    - !Sub arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:volume/*
+                - Sid: TagOnlyDuringProvisioning
+                  Effect: Allow
+                  Action: ec2:CreateTags
+                  Resource: "*"
+                  Condition:
+                    StringEquals:
+                      ec2:CreateAction: RunInstances
+                - Sid: PassOnlyOpsAgentInstanceRole
+                  Effect: Allow
+                  Action: iam:PassRole
+                  Resource: !GetAtt OpsAgentManagedInstanceRole.Arn
+                  Condition:
+                    StringEquals:
+                      iam:PassedToService: ec2.amazonaws.com
+          - !Ref AWS::NoValue
+        - !If
+          - TerminationEnabled
+          - PolicyName: OpsAgentMfaTermination
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Sid: TerminateOnlyManagedInstances
+                  Effect: Allow
+                  Action: ec2:TerminateInstances
+                  Resource: !Sub arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*
+                  Condition:
+                    StringEquals:
+                      ec2:ResourceTag/OpsAgentManaged: "true"
+          - !Ref AWS::NoValue
+        - !If
+          - SsmOperationsEnabled
+          - PolicyName: OpsAgentSsmRunbookExecution
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Sid: ReadSsmExecutionState
+                  Effect: Allow
+                  Action:
+                    - ssm:DescribeDocument
+                    - ssm:DescribeInstanceInformation
+                    - ssm:GetCommandInvocation
+                    - ssm:GetDocument
+                    - ssm:ListCommandInvocations
+                    - ssm:ListCommands
+                  Resource: "*"
+                - Sid: UseOnlyOpsAgentDocuments
+                  Effect: Allow
+                  Action: ssm:SendCommand
+                  Resource: !Sub arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/OpsAgent-*
+                - Sid: OperateOnlyManagedInstances
+                  Effect: Allow
+                  Action: ssm:SendCommand
+                  Resource: !Sub arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*
+                  Condition:
+                    StringEquals:
+                      ssm:resourceTag/OpsAgentManaged: "true"
+          - !Ref AWS::NoValue
+      Tags:
+        - Key: ManagedBy
+          Value: OpsAgent
+
+Outputs:
+  RoleArn:
+    Description: Copy this value into AWS_ROLE_ARN on the OpsAgent control plane
+    Value: !GetAtt OpsAgentConnectorRole.Arn
+  ExternalId:
+    Description: Use the same value in AWS_EXTERNAL_ID
+    Value: !Ref ExternalId
+  ManagedInstanceProfile:
+    Condition: ProvisioningEnabled
+    Description: Instance profile attached to EC2 instances created by OpsAgent
+    Value: !Ref OpsAgentManagedInstanceProfile

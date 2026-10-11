@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "2.2",
+  "description": "OpsAgent approved installation of a Windows Server feature with verification.",
+  "parameters": {
+    "FeatureName": {
+      "type": "String",
+      "description": "Exact Windows feature name, for example AD-Domain-Services, DNS, or DHCP.",
+      "allowedPattern": "^[A-Za-z][A-Za-z0-9.-]{1,79}$",
+      "interpolationType": "ENV_VAR"
+    },
+    "IncludeAllSubFeature": {
+      "type": "String",
+      "default": "false",
+      "allowedValues": ["true", "false"],
+      "interpolationType": "ENV_VAR"
+    },
+    "IncludeManagementTools": {
+      "type": "String",
+      "default": "true",
+      "allowedValues": ["true", "false"],
+      "interpolationType": "ENV_VAR"
+    },
+    "RestartIfRequired": {
+      "type": "String",
+      "default": "false",
+      "allowedValues": ["true", "false"],
+      "interpolationType": "ENV_VAR"
+    }
+  },
+  "mainSteps": [
+    {
+      "action": "aws:runPowerShellScript",
+      "name": "InstallAndVerifyWindowsFeature",
+      "precondition": {
+        "StringEquals": ["platformType", "Windows"]
+      },
+      "inputs": {
+        "timeoutSeconds": "1800",
+        "runCommand": [
+          "$ErrorActionPreference = 'Stop'",
+          "$featureName = $env:SSM_FeatureName",
+          "$current = Get-WindowsFeature -Name $featureName",
+          "if (-not $current) { throw \"Windows feature '$featureName' was not found on this server.\" }",
+          "if ($current.Installed) { Write-Output \"VERIFIED: $featureName is already installed.\"; exit 0 }",
+          "$arguments = @{ Name = $featureName; ErrorAction = 'Stop' }",
+          "if ($env:SSM_IncludeAllSubFeature -eq 'true') { $arguments.IncludeAllSubFeature = $true }",
+          "if ($env:SSM_IncludeManagementTools -eq 'true') { $arguments.IncludeManagementTools = $true }",
+          "$result = Install-WindowsFeature @arguments",
+          "$verified = Get-WindowsFeature -Name $featureName",
+          "if (-not $result.Success -or -not $verified.Installed) { throw \"Installation verification failed for $featureName.\" }",
+          "Write-Output \"VERIFIED: $featureName installed successfully. RestartNeeded=$($result.RestartNeeded)\"",
+          "if ($result.RestartNeeded -eq 'Yes' -and $env:SSM_RestartIfRequired -eq 'true') { Write-Output 'Approved restart requested.'; Restart-Computer -Force }"
+        ]
+      }
+    }
+  ]
+}

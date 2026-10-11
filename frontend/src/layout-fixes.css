@@ -1,0 +1,17 @@
+/* Component isolation: only the application navigation is a fixed sidebar. */
+.aws-overview>.change-guardrails{
+  position:static;
+  inset:auto;
+  width:auto;
+  height:auto;
+  min-height:0;
+  display:block;
+  padding:24px;
+  overflow:visible;
+  border:1px solid #252e3c;
+  border-radius:15px;
+  background:#10151e;
+}
+.aws-overview,.metrics,.audit-heading,.inventory{position:relative;z-index:1}
+.audit-heading+.inventory{width:100%;max-width:100%;overflow-x:auto}
+.audit-heading+.inventory table{width:max-content;min-width:100%}

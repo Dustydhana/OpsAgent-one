@@ -1,0 +1,29 @@
+.composer.chatgpt .voice-control {
+  background: transparent;
+  color: #a8b3c4;
+  transition: 0.18s;
+}
+.composer.chatgpt .voice-control:hover {
+  background: #252d3b;
+  color: #fff;
+}
+.composer.chatgpt .voice-mode {
+  background: #7967ff;
+  color: #fff;
+}
+.composer.chatgpt .voice-control svg {
+  width: 19px;
+}
+.composer.chatgpt .voice-control.recording {
+  background: #e94d62;
+  color: #fff;
+  animation: voice-pulse 1.25s infinite;
+}
+.composer-row textarea::placeholder {
+  color: #7f8999;
+}
+@keyframes voice-pulse {
+  50% {
+    box-shadow: 0 0 0 7px #e94d6228;
+  }
+}

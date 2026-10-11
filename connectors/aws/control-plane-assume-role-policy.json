@@ -1,0 +1,11 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AssumeCustomerOpsAgentConnector",
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Resource": "CUSTOMER_CONNECTOR_ROLE_ARN"
+    }
+  ]
+}

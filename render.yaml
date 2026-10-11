@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: opsagent-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/v1/ready
+    autoDeployTrigger: commit
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: OPSAGENT_API_SECRET
+        generateValue: true
+      - key: OPSAGENT_FRONTEND_URL
+        sync: false
+      - key: OPSAGENT_OAUTH_CALLBACK_BASE
+        sync: false
+      - key: OPSAGENT_CORS_ORIGINS
+        sync: false
+      - key: OPSAGENT_DEFAULT_ORGANIZATION_ID
+        value: org-default
+      - key: OPSAGENT_COOKIE_SECURE
+        value: "true"
+      - key: OPSAGENT_CONNECTORS_IN_API
+        value: "false"
+      - key: APP_SIGNUP_ENABLED
+        value: "false"
+      - key: AWS_DRY_RUN
+        value: "true"
+      - key: VMWARE_DRY_RUN
+        value: "true"
+      - key: SSM_OPERATIONS_DRY_RUN
+        value: "true"
+      - key: SCCM_MODE
+        value: simulation

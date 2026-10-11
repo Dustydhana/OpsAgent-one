@@ -1,0 +1,31 @@
+.access-management select {
+  background: #0b1018;
+  color: #e5eaf2;
+  border: 1px solid #2b3545;
+  border-radius: 7px;
+  padding: 8px;
+}
+.access-management button {
+  border: 0;
+  border-radius: 7px;
+  background: #735fff;
+  color: #fff;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.access-management button:disabled {
+  background: #252c38;
+  color: #687487;
+}
+.access-switch {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.access-notice {
+  margin: 10px 0;
+}
+.access-management td:first-child strong,
+.access-management td:first-child small {
+  display: block;
+}

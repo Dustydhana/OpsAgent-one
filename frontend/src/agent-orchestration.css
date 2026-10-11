@@ -1,0 +1,31 @@
+.agent-orchestration-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.agent-operation-card{display:flex;min-height:350px;flex-direction:column;padding:22px;border:1px solid #d6dde7;border-radius:5px;background:#fff;color:#182230;box-shadow:0 1px 2px #1018280a}
+.agent-operation-card>header{display:flex;align-items:center;justify-content:space-between}
+.agent-operation-card h3{margin:18px 0 7px;font-size:18px;letter-spacing:-.015em}
+.agent-operation-card>p{min-height:42px;margin:0;color:#657386;font-size:12px;line-height:1.65}
+.agent-runtime{display:flex;align-items:center;gap:7px;padding:5px 9px;border:1px solid #d8e1ea;border-radius:999px;background:#f8fafc;color:#536274;font-size:10px;font-weight:700}
+.agent-runtime i{width:7px;height:7px;border-radius:50%;background:#f0a11b}
+.agent-runtime.operational,.agent-runtime.policy-active,.agent-runtime.available{border-color:#bfe8d8;background:#f0fbf7;color:#087a57}
+.agent-runtime.operational i,.agent-runtime.policy-active i,.agent-runtime.available i{background:#18a875;box-shadow:0 0 0 3px #d9f5ea}
+.agent-scope{display:grid;grid-template-columns:1.2fr 1fr;gap:24px;margin-top:20px;padding:18px 0;border-top:1px solid #e4e9ef}
+.agent-scope section{display:flex;flex-direction:column;gap:9px}
+.agent-scope b{margin-bottom:2px;color:#778497;font-size:9px;letter-spacing:.11em;text-transform:uppercase}
+.agent-scope section>span{display:flex;align-items:center;gap:7px;color:#354254;font-size:11px}
+.agent-scope section>span svg{width:13px;color:#15966b}
+.agent-scope section>div{display:flex;flex-wrap:wrap;gap:6px}
+.agent-scope em{padding:5px 7px;border:1px solid #dce3eb;border-radius:3px;background:#f7f9fc;color:#445268;font-size:9px;font-style:normal}
+.agent-operation-card>footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:auto;padding-top:15px;border-top:1px solid #e4e9ef}
+.agent-operation-card>footer>span{display:flex;align-items:center;gap:6px;color:#738094;font-size:9px}
+.agent-operation-card>footer>span svg{width:13px;color:#3266df}
+.agent-operation-card>footer button{display:flex;align-items:center;gap:5px;border:0;background:transparent;color:#315de8;font-size:10px;font-weight:700;cursor:pointer}
+.agent-operation-card>footer button:hover{text-decoration:underline}
+.agent-operation-card>footer button svg{width:13px}
+.agent-center .agent-stats strong small{color:#8a96a6;font-size:13px;font-weight:500}
+@media(max-width:1050px){.agent-orchestration-grid{grid-template-columns:1fr}}
+@media(max-width:680px){.agent-scope{grid-template-columns:1fr}.agent-operation-card>footer{align-items:flex-start;flex-direction:column}}
+
+:root:not([data-theme="light"]) .agent-operation-card{border-color:#25384e;background:#0e1724;color:#edf4fb}
+:root:not([data-theme="light"]) .agent-operation-card>p,:root:not([data-theme="light"]) .agent-operation-card>footer>span{color:#8194aa}
+:root:not([data-theme="light"]) .agent-scope,:root:not([data-theme="light"]) .agent-operation-card>footer{border-color:#26364a}
+:root:not([data-theme="light"]) .agent-scope section>span{color:#c0ccda}
+:root:not([data-theme="light"]) .agent-scope em{border-color:#2d4055;background:#152235;color:#b8c6d6}

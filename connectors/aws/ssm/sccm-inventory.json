@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "2.2",
+  "description": "OpsAgent read-only Microsoft Configuration Manager inventory collection.",
+  "mainSteps": [
+    {
+      "action": "aws:runPowerShellScript",
+      "name": "CollectSccmInventory",
+      "precondition": { "StringEquals": ["platformType", "Windows"] },
+      "inputs": {
+        "timeoutSeconds": "240",
+        "runCommand": [
+          "$ErrorActionPreference = 'Stop'",
+          "$module = Join-Path (Split-Path $env:SMS_ADMIN_UI_PATH) 'ConfigurationManager.psd1'",
+          "if (-not (Test-Path $module)) { throw 'Configuration Manager PowerShell module is not installed.' }",
+          "Import-Module $module -ErrorAction Stop",
+          "$site = Get-PSDrive -PSProvider CMSite | Select-Object -First 1",
+          "if (-not $site) { throw 'No Configuration Manager CMSite PowerShell drive is available.' }",
+          "Set-Location ($site.Name + ':')",
+          "$devices = @(Get-CMDevice | Select-Object Name,ResourceId,SiteCode,ClientType,ClientVersion,ClientActiveStatus,DeviceOS,LastActiveTime,IsActive)",
+          "$collections = @(Get-CMDeviceCollection | Select-Object Name,CollectionID,MemberCount,LimitingCollectionName,LastMemberChangeTime,CurrentStatus)",
+          "$deployments = @(Get-CMDeployment | Select-Object DeploymentID,ApplicationName,CollectionName,FeatureType,EnforcementDeadline,NumberSuccess,NumberInProgress,NumberErrors,NumberOther)",
+          "$updateGroups = @(Get-CMSoftwareUpdateGroup | Select-Object LocalizedDisplayName,CI_ID,DateCreated,DateLastModified,NumberOfUpdates)",
+          "$payload = [ordered]@{ collected_at=(Get-Date).ToUniversalTime().ToString('o'); site_code=$site.Name; provider=$site.Root; summary=[ordered]@{ devices=$devices.Count; active_clients=@($devices | Where-Object { $_.ClientActiveStatus -eq 1 -or $_.IsActive }).Count; collections=$collections.Count; deployments=$deployments.Count; update_groups=$updateGroups.Count }; devices=$devices; collections=$collections; deployments=$deployments; update_groups=$updateGroups }",
+          "$json = $payload | ConvertTo-Json -Depth 6 -Compress",
+          "$encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($json))",
+          "Write-Output ('OPSAGENT_JSON_BASE64:' + $encoded)"
+        ]
+      }
+    }
+  ]
+}

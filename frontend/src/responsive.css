@@ -1,0 +1,143 @@
+/* Application-wide responsive rules. Keep this file last in the import order. */
+html, body, #root { width: 100%; min-width: 0; max-width: 100%; }
+body { min-width: 0; overflow-x: hidden; }
+img, video, canvas, svg { max-width: 100%; }
+.shell { width: 100%; grid-template-columns: 260px minmax(0, 1fr); }
+.shell > aside { z-index: 50; }
+.workspace { min-width: 0; max-width: none; margin: 0; }
+.workspace > * { min-width: 0; max-width: 100%; }
+.panel, .command-panel, .hardware-panel, .alert-event-panel { min-width: 0; }
+.inventory, .data-grid, .table-wrap { max-width: 100%; overflow-x: auto; }
+table { min-width: 680px; }
+input, select, textarea, button { max-width: 100%; }
+
+/* Inventory workspaces use available width instead of forcing horizontal overflow. */
+.asset-columns,
+:root[data-theme="light"] .decommission-workspace .asset-columns {
+  grid-template-columns: minmax(210px, 18%) minmax(270px, 25%) minmax(0, 1fr);
+}
+.asset-tree, .asset-list, .asset-detail { min-width: 0; }
+.detail-properties > div { grid-template-columns: minmax(105px, 34%) minmax(0, 1fr); }
+.detail-properties strong { overflow-wrap: anywhere; }
+
+@media (max-width: 1280px) {
+  .shell:not(.sidebar-compact) { grid-template-columns: 210px minmax(0, 1fr); }
+  .shell:not(.sidebar-compact) > aside { width: 210px; padding-inline: 12px; }
+  .workspace { padding-inline: 24px; }
+  .asset-workspace { height: auto; min-height: calc(100vh - 185px); }
+  .asset-columns,
+  :root[data-theme="light"] .decommission-workspace .asset-columns {
+    grid-template-columns: minmax(190px, 24%) minmax(250px, 32%) minmax(0, 1fr);
+  }
+  .detail-layout { padding: 18px; }
+}
+
+/* Tablet: automatically use an icon rail across the whole application. */
+@media (max-width: 1024px) {
+  .shell, .shell.sidebar-compact, :root[data-theme="light"] .shell.sidebar-compact {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+  .shell > aside, .shell.sidebar-compact > aside,
+  :root[data-theme="light"] .shell.sidebar-compact > aside {
+    width: 64px;
+    padding: 12px 8px;
+  }
+  .shell .logo { justify-content: center; height: auto; padding: 0 0 10px; }
+  .shell .logo .ops-logo { width: 40px; height: 40px; flex-basis: 40px; }
+  .shell .logo .brand-lockup > div:last-child,
+  .shell .organization,
+  .shell .nav-group > p,
+  .shell .nav-group > button > span,
+  .shell .user-identity,
+  .shell .user > button:not(.profile-avatar) { display: none; }
+  .shell .sidebar-toggle { justify-content: center; padding: 7px; }
+  .shell .sidebar-toggle span { display: none; }
+  .shell > aside > nav, .shell.sidebar-compact > aside nav {
+    display: flex;
+    grid-template-columns: none;
+    padding-right: 0;
+  }
+  .shell .nav-group { margin-bottom: 3px; }
+  .shell .nav-group > button,
+  :root[data-theme="light"] .shell.sidebar-compact .nav-group > button {
+    width: 44px;
+    min-height: 40px;
+    justify-content: center;
+    margin: 0 auto;
+    padding: 8px;
+  }
+  .shell .nav-group > button svg { width: 19px; height: 19px; flex: 0 0 19px; }
+  .shell .user { display: flex; justify-content: center; grid-template-columns: 36px; padding-inline: 0; }
+  .shell:not(.sidebar-compact) .user .avatar { display: grid; }
+  .shell .workspace, .shell.sidebar-compact .workspace,
+  :root[data-theme="light"] .shell.sidebar-compact .workspace {
+    grid-column: 2;
+    width: auto;
+    padding: 22px 18px 52px;
+  }
+  .enterprise-bar { padding-inline: 16px; }
+  .global-search { width: 42px; font-size: 0; justify-content: center; }
+  .global-search kbd { display: none; }
+  .workspace-heading h1 { font-size: clamp(24px, 4vw, 32px); }
+
+  .asset-workspace { min-height: 0; grid-template-rows: auto auto; overflow: visible; }
+  .asset-toolbar { min-height: 68px; gap: 12px; padding: 12px 14px; flex-wrap: wrap; }
+  .asset-toolbar-actions { flex: 1 1 380px; justify-content: flex-end; }
+  .asset-toolbar-actions label { width: min(310px, 100%); flex: 1; }
+  .asset-columns,
+  :root[data-theme="light"] .decommission-workspace .asset-columns {
+    grid-template-areas: "tree tree" "list detail";
+    grid-template-columns: minmax(250px, 38%) minmax(0, 1fr);
+    grid-template-rows: auto minmax(620px, auto);
+  }
+  .asset-tree { grid-area: tree; max-height: 235px; border-right: 0; border-bottom: 1px solid #b4bbc3; }
+  .asset-list { grid-area: list; border-right: 1px solid #b4bbc3; }
+  .asset-detail { grid-area: detail; }
+  .tree-group.infrastructure-tree { columns: 2; column-gap: 10px; }
+  .inventory-node { break-inside: avoid; }
+
+  .metrics, .command-kpis, .hardware-kpis, .hardware-kpis.five,
+  :root[data-theme="light"] .command-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid, .operations-grid, .aws-overview, .primary-grid, .status-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 700px) {
+  .workspace, .shell .workspace, .shell.sidebar-compact .workspace,
+  :root[data-theme="light"] .shell.sidebar-compact .workspace { padding: 16px 12px 42px; }
+  .enterprise-bar { min-height: 50px; padding-inline: 10px; }
+  .breadcrumb span, .breadcrumb b { display: none; }
+  .workspace-heading { margin-bottom: 18px; }
+  .workspace-heading .eyebrow { display: none; }
+  .workspace-description { font-size: 11px; }
+  .data-connection-banner { margin-inline: 0 !important; }
+
+  .asset-toolbar > div:first-child { min-width: 0; }
+  .asset-product-mark { display: none; }
+  .asset-toolbar-actions { flex-basis: 100%; justify-content: stretch; }
+  .asset-toolbar-actions label { width: auto; }
+  .asset-columns,
+  :root[data-theme="light"] .decommission-workspace .asset-columns {
+    display: grid;
+    grid-template-areas: "tree" "list" "detail";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+  }
+  .asset-tree { max-height: 220px; }
+  .tree-group.infrastructure-tree { columns: 1; }
+  .asset-list { min-height: 360px; max-height: 520px; border-right: 0; border-bottom: 1px solid #b4bbc3; }
+  .asset-detail { min-height: 440px; }
+  .asset-detail-header { grid-template-columns: 42px minmax(0, 1fr); padding: 17px; }
+  .asset-detail-header > .status, .asset-detail-header > button { grid-column: 2; justify-self: start; }
+  .detail-layout { padding: 16px; }
+  .detail-properties > div { grid-template-columns: minmax(95px, 38%) minmax(0, 1fr); }
+
+  .metrics, .command-kpis, .hardware-kpis, .hardware-kpis.five,
+  :root[data-theme="light"] .command-kpis { grid-template-columns: 1fr; }
+  .hero, .command-heading, .page-lead, .operation-page-lead, .alert-page-heading {
+    align-items: flex-start; flex-direction: column;
+  }
+  .panel, .command-panel { overflow-x: auto; }
+  .pie-layout { grid-template-columns: 1fr !important; justify-items: center; }
+  .chart-legend { width: 100%; }
+}

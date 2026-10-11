@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "2.2",
+  "description": "OpsAgent approval-gated Active Directory domain join using a Secrets Manager credential.",
+  "parameters": {
+    "DomainName": {
+      "type": "String",
+      "description": "Active Directory DNS domain name.",
+      "allowedPattern": "^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z]{2,63}$",
+      "interpolationType": "ENV_VAR"
+    },
+    "DomainCredentialSecretId": {
+      "type": "String",
+      "description": "Secrets Manager name or ARN containing username and password JSON properties.",
+      "allowedPattern": "^[A-Za-z0-9:/_+=.@-]{1,512}$",
+      "interpolationType": "ENV_VAR"
+    },
+    "OrganizationalUnitPath": {
+      "type": "String",
+      "description": "Optional distinguished name of the destination computer OU.",
+      "default": "",
+      "interpolationType": "ENV_VAR"
+    },
+    "RestartIfRequired": {
+      "type": "String",
+      "default": "false",
+      "allowedValues": ["true", "false"],
+      "interpolationType": "ENV_VAR"
+    }
+  },
+  "mainSteps": [
+    {
+      "action": "aws:runPowerShellScript",
+      "name": "JoinDomainAndVerify",
+      "precondition": {
+        "StringEquals": ["platformType", "Windows"]
+      },
+      "inputs": {
+        "timeoutSeconds": "1800",
+        "runCommand": [
+          "$ErrorActionPreference = 'Stop'",
+          "$domain = $env:SSM_DomainName",
+          "$secretId = $env:SSM_DomainCredentialSecretId",
+          "$ouPath = $env:SSM_OrganizationalUnitPath",
+          "$computer = Get-CimInstance Win32_ComputerSystem",
+          "if ($computer.PartOfDomain -and $computer.Domain -ieq $domain) { Write-Output \"VERIFIED: Computer is already joined to $domain.\"; exit 0 }",
+          "if (-not (Get-Command Get-SECSecretValue -ErrorAction SilentlyContinue)) { throw 'AWS Tools for PowerShell SecretsManager cmdlets are required on this server.' }",
+          "$secretResponse = Get-SECSecretValue -SecretId $secretId",
+          "if ([string]::IsNullOrWhiteSpace($secretResponse.SecretString)) { throw 'The domain credential secret must contain a JSON SecretString.' }",
+          "$secret = $secretResponse.SecretString | ConvertFrom-Json",
+          "if ([string]::IsNullOrWhiteSpace($secret.username) -or [string]::IsNullOrWhiteSpace($secret.password)) { throw 'The secret JSON must contain username and password properties.' }",
+          "$securePassword = ConvertTo-SecureString ([string]$secret.password) -AsPlainText -Force",
+          "$credential = [PSCredential]::new([string]$secret.username, $securePassword)",
+          "$arguments = @{ DomainName = $domain; Credential = $credential; Force = $true; PassThru = $true; ErrorAction = 'Stop' }",
+          "if (-not [string]::IsNullOrWhiteSpace($ouPath)) { $arguments.OUPath = $ouPath }",
+          "$result = Add-Computer @arguments",
+          "if (-not $result.HasSucceeded) { throw \"Domain join failed for $domain.\" }",
+          "Write-Output \"VERIFIED: Domain join accepted for $domain. Restart is required to complete membership.\"",
+          "if ($env:SSM_RestartIfRequired -eq 'true') { Write-Output 'Approved restart requested.'; Restart-Computer -Force }"
+        ]
+      }
+    }
+  ]
+}

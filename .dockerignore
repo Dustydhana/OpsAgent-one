@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+.git
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+backups
+frontend/node_modules
+frontend/dist
+tests
+*.pem
+.opsagent-api-secret

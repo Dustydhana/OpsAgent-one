@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-5 -5 74 74" role="img" aria-label="OpsAgent One workflow: Request, Acknowledge, Investigation, Approval, Completed">
+  <defs>
+    <radialGradient id="core" cx="38%" cy="28%" r="80%"><stop stop-color="#647DFF"/><stop offset="1" stop-color="#3654DF"/></radialGradient>
+    <filter id="nodeGlow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="1.4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <style>
+    .workflow-orbit{transform-origin:32px 32px;animation:workflowCycle 10s linear infinite}
+    @keyframes workflowCycle{to{transform:rotate(360deg)}}
+    @media(prefers-reduced-motion:reduce){.workflow-orbit{animation:none}}
+  </style>
+  <circle cx="32" cy="32" r="27" fill="#F8FAFC" stroke="#DDE4ED" stroke-width="1.5"/>
+  <circle cx="32" cy="32" r="17" fill="url(#core)"/>
+  <g class="workflow-orbit">
+    <circle cx="32" cy="32" r="23" fill="none" stroke="#DDE4ED" stroke-width="3" stroke-dasharray="23 5"/>
+    <circle cx="32" cy="9" r="3.2" fill="#5576FF" stroke="#fff" stroke-width="1.5" filter="url(#nodeGlow)"><title>Request</title></circle>
+    <circle cx="54" cy="25" r="3.2" fill="#28A9DB" stroke="#fff" stroke-width="1.5" filter="url(#nodeGlow)"><title>Acknowledge</title></circle>
+    <circle cx="45.5" cy="50.5" r="3.2" fill="#20B8C8" stroke="#fff" stroke-width="1.5" filter="url(#nodeGlow)"><title>Investigation</title></circle>
+    <circle cx="18.5" cy="50.5" r="3.2" fill="#F4A340" stroke="#fff" stroke-width="1.5" filter="url(#nodeGlow)"><title>Approval</title></circle>
+    <circle cx="10" cy="25" r="3.2" fill="#24A56A" stroke="#fff" stroke-width="1.5" filter="url(#nodeGlow)"><title>Completed</title></circle>
+  </g>
+  <path d="m27 27 6-4v19M27 42h12" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

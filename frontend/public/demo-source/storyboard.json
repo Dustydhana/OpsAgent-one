@@ -1,0 +1,44 @@
+{
+  "title": "OpsAgent monitoring workflow",
+  "subtitle": "From alert to safe action",
+  "resolution": "1920x1080",
+  "output": "opsagent-monitoring-demo.mp4",
+  "scenes": [
+    {
+      "image": "01-alert-triggered.png",
+      "heading": "Alert detected",
+      "description": "A monitoring alert enters OpsAgent through Slack or Gmail.",
+      "duration_seconds": 5
+    },
+    {
+      "image": "02-agent-acknowledged.png",
+      "heading": "Agent acknowledges",
+      "description": "The Monitoring Agent acknowledges the incident and identifies the affected resource.",
+      "duration_seconds": 5
+    },
+    {
+      "image": "03-investigation-running.png",
+      "heading": "Investigation begins",
+      "description": "OpsAgent collects server, service, network and recent-change evidence.",
+      "duration_seconds": 7
+    },
+    {
+      "image": "04-root-cause-analysis.png",
+      "heading": "Root cause explained",
+      "description": "The agent summarizes the likely cause, impact and recommended remediation.",
+      "duration_seconds": 7
+    },
+    {
+      "image": "05-operation-approval.png",
+      "heading": "Human approval",
+      "description": "A guarded operation is prepared and waits for an authorized approver.",
+      "duration_seconds": 6
+    },
+    {
+      "image": "06-operation-complete.png",
+      "heading": "Resolved and communicated",
+      "description": "The operation completes, evidence is audited, and Slack and Gmail are updated.",
+      "duration_seconds": 6
+    }
+  ]
+}

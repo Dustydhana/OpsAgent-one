@@ -1,0 +1,27 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadSsmManagedNodesAndCommands",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:DescribeInstanceInformation",
+        "ssm:DescribeDocument",
+        "ssm:GetDocument",
+        "ssm:GetCommandInvocation",
+        "ssm:ListCommands",
+        "ssm:ListCommandInvocations"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "UseOpsAgentDocuments",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": [
+        "arn:aws:ssm:us-east-1:701573843415:document/OpsAgent-install_windows_feature",
+        "arn:aws:ec2:us-east-1:701573843415:instance/i-0b803014af102ad61"
+      ]
+    }
+  ]
+}
