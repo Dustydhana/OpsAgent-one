@@ -53,7 +53,7 @@ import {
   Workflow,
   X,
 } from "lucide-react";
-import { api, apiUrl } from "./api";
+import { api, apiErrorMessage, apiUrl } from "./api";
 import type { LucideIcon } from "lucide-react";
 import { FaAws, FaGithub, FaGoogle, FaMicrosoft, FaSlack, FaWindows } from "react-icons/fa6";
 import { GrHpe } from "react-icons/gr";
@@ -424,7 +424,7 @@ function Login({ onLogin }: { onLogin: (user: User) => void }) {
         body: JSON.stringify({ username, password }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.detail);
+      if (!response.ok) throw new Error(apiErrorMessage(data.detail, "Unable to sign in"));
       localStorage.setItem("opsagent_token", data.access_token);
       onLogin(data.user);
     } catch (e) {
@@ -440,7 +440,7 @@ function Login({ onLogin }: { onLogin: (user: User) => void }) {
     try {
       const response = await fetch(apiUrl("/auth/signup"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(signupForm) });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || "Unable to create account");
+      if (!response.ok) throw new Error(apiErrorMessage(data.detail, "Unable to create account"));
       localStorage.setItem("opsagent_token", data.access_token);
       onLogin(data.user);
     } catch (signupError) {
