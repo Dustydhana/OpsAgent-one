@@ -49,7 +49,7 @@ def register_from_server(record, *, requester="Inventory sync", organization_id=
                  requested_by,ticket_reference,scream_test_started_at,scream_test_ends_at,
                  decommissioned_at,details,updated_at)
                 VALUES (%s,%s,%s,NULLIF(%s,''),NULLIF(%s,''),%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,NOW())
-                ON CONFLICT (server_name) DO UPDATE SET provider=EXCLUDED.provider,
+                ON CONFLICT (organization_id,server_name) DO UPDATE SET provider=EXCLUDED.provider,
                 resource_id=EXCLUDED.resource_id,ip_address=EXCLUDED.ip_address,
                 power_state=EXCLUDED.power_state,lifecycle_state=EXCLUDED.lifecycle_state,
                 owner=EXCLUDED.owner,ticket_reference=EXCLUDED.ticket_reference,

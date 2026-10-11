@@ -60,6 +60,11 @@ def migrate(organization_id: str) -> None:
             EXCEPTION WHEN duplicate_object THEN NULL; END $$""")
             cursor.execute("""CREATE UNIQUE INDEX IF NOT EXISTS server_inventory_org_ip_unique
                 ON ops_agent.server_inventory(organization_id, ip_address)""")
+            cursor.execute("ALTER TABLE ops_agent.decommission_inventory DROP CONSTRAINT IF EXISTS decommission_inventory_pkey")
+            cursor.execute("""DO $$ BEGIN
+                ALTER TABLE ops_agent.decommission_inventory ADD CONSTRAINT decommission_inventory_pkey
+                PRIMARY KEY (organization_id, server_name);
+            EXCEPTION WHEN duplicate_object THEN NULL; END $$""")
         connection.commit()
 
 
