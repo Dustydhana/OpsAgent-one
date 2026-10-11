@@ -56,7 +56,7 @@ def get_readiness(organization_id: str) -> dict:
             _check("bot_token", "Slack bot token", _present("SLACK_BOT_TOKEN"), "Set SLACK_BOT_TOKEN in Render."),
             _check("app_token", "Slack app token", _present("SLACK_APP_TOKEN"), "Set SLACK_APP_TOKEN in Render."),
             _check("channel", "Slack channel", _present("SLACK_CHANNEL"), "Set SLACK_CHANNEL in Render."),
-        ], counts.get("slack", 0)),
+        ], counts.get("slack", 0), registration_satisfies=True),
         _provider("vmware", "VMware vCenter", [
             _check("gateway", "Tenant gateway registration", counts.get("vmware", 0) > 0, "Create and enroll a customer gateway for private vCenter access."),
         ], counts.get("vmware", 0), registration_satisfies=True),
@@ -66,7 +66,7 @@ def get_readiness(organization_id: str) -> dict:
         _provider("email", "Inbound email", [
             _check("imap_host", "IMAP server", _present("IMAP_HOST"), "Set IMAP_HOST in Render."),
             _check("imap_identity", "IMAP service identity", _present("IMAP_USERNAME") and _present("IMAP_PASSWORD"), "Set the IMAP service account credentials in Render."),
-        ], counts.get("gmail", 0)),
+        ], counts.get("gmail", 0), registration_satisfies=True),
     ]
     ready = sum(item["status"] == "ready" for item in providers)
     return {

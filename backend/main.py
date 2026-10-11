@@ -16,6 +16,7 @@ import auth
 import chat_store
 import chat_operations
 import connector_readiness
+import connector_testing
 import credential_store
 import config
 import database
@@ -979,6 +980,24 @@ def create_secure_integration_connection(request: SecureIntegrationConnectionReq
 @app.get("/api/v1/integrations/credentials")
 def integration_credentials(_user=Depends(require_permission(authorization.MANAGE_CONNECTORS))):
     return credential_store.list_credentials(_user["organization_id"])
+
+
+@app.post("/api/v1/integrations/connections/{provider}/test")
+def test_tenant_integration(provider: str, _user=Depends(require_permission(authorization.MANAGE_CONNECTORS))):
+    provider = provider.lower()
+    try:
+        credentials = credential_store.resolve_provider(_user["organization_id"], provider)
+        if not credentials:
+            raise ValueError("Save the connector credentials before testing")
+        result = connector_testing.test_provider(provider, credentials)
+        credential_store.record_test(_user["organization_id"], provider, True)
+        return result
+    except ValueError as error:
+        credential_store.record_test(_user["organization_id"], provider, False, str(error))
+        raise HTTPException(422, str(error)) from error
+    except Exception as error:
+        credential_store.record_test(_user["organization_id"], provider, False, f"{type(error).__name__}: {error}")
+        raise HTTPException(400, f"{provider.title()} connection failed: {type(error).__name__}: {error}") from error
 
 
 @app.get("/api/v1/gateways")

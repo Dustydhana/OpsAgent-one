@@ -3237,7 +3237,7 @@ function ConnectionsCenter() {
   const configurableConnectors = new Set([
     "aws","azure","gcp","oracle","ibmcloud","alibaba","vmware","nutanix",
     "openstack","hyperv","kubernetes","sccm","windows","linux","network",
-    "storage","cisco","dell","hpe","grafana","datadog","solarwinds","nagios","slack",
+    "storage","cisco","dell","hpe","grafana","datadog","solarwinds","nagios","slack","gmail",
   ]);
   async function toggle(key: string) {
     if (!settings) return;
@@ -3274,7 +3274,7 @@ function ConnectionsCenter() {
     }
   }
   function openConnector(key:string,name:string,description:string){
-    const gatewayProviders = new Set(["sccm","vmware","hardware","cisco","dell","hpe","windows","linux","nutanix","openstack","hyperv","kubernetes","network","storage"]);
+    const gatewayProviders = new Set(["sccm","hardware","cisco","dell","hpe","windows","linux","nutanix","openstack","hyperv","kubernetes","network","storage"]);
     setSelectedConnector({key,name,description});
     setConnectionMode(gatewayProviders.has(key)?"gateway":"api");
     setConnectorForm({display_name:`${name} connection`,endpoint:"",credential_reference:"",platform:"windows"});
@@ -3289,7 +3289,8 @@ function ConnectionsCenter() {
       azure:[{key:"tenant_id",label:"Tenant ID"},{key:"client_id",label:"Client ID"},{key:"client_secret",label:"Client secret",secret:true},{key:"subscription_id",label:"Subscription ID"}],
       gcp:[{key:"service_account_json",label:"Service account JSON",secret:true}],
       slack:[{key:"bot_token",label:"Bot token",secret:true,placeholder:"xoxb-…"},{key:"app_token",label:"App token",secret:true,placeholder:"xapp-…"},{key:"channel",label:"Channel ID"}],
-      gmail:[{key:"username",label:"Email address"},{key:"app_password",label:"App password",secret:true},{key:"imap_host",label:"IMAP host",placeholder:"imap.gmail.com"}],
+      gmail:[{key:"username",label:"Email address"},{key:"app_password",label:"App password",secret:true},{key:"imap_host",label:"IMAP host",placeholder:"imap.gmail.com"},{key:"imap_port",label:"IMAP port",placeholder:"993"},{key:"smtp_host",label:"SMTP host",placeholder:"smtp.gmail.com"},{key:"smtp_port",label:"SMTP port",placeholder:"587"}],
+      vmware:[{key:"endpoint",label:"vCenter hostname or IP"},{key:"username",label:"Service account username"},{key:"password",label:"Password",secret:true},{key:"port",label:"HTTPS port",placeholder:"443"},{key:"verify_ssl",label:"Verify TLS certificate",placeholder:"true"}],
       servicenow:[{key:"username",label:"Service account username"},{key:"password",label:"Password",secret:true},{key:"instance",label:"Instance URL"}],
       jira:[{key:"email",label:"Service account email"},{key:"api_token",label:"API token",secret:true}],
     };
@@ -3334,6 +3335,13 @@ function ConnectionsCenter() {
           }catch(validationError){
             setStatus(`Credentials saved securely, but AWS verification failed: ${(validationError as Error).message}`);
           }
+        }else if(["slack","gmail","vmware"].includes(selectedConnector.key)){
+          setStatus(`Credentials encrypted. Testing ${selectedConnector.name}…`);
+          try{
+            await api(`/integrations/connections/${selectedConnector.key}/test`,{method:"POST"});
+            setConnectionRecords((current)=>current.map((item,index)=>index===0?{...item,status:"connected"}:item));
+            setStatus(`${selectedConnector.name} connected successfully.`);
+          }catch(validationError){setStatus(`Credentials saved securely, but validation failed: ${(validationError as Error).message}`)}
         }else setStatus("Credentials encrypted and connection saved. Provider validation is still required.");
       }
     }catch(error){setStatus((error as Error).message)}finally{setSavingConnector(false)}
