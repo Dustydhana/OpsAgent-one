@@ -1,6 +1,7 @@
-const base = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
-
-export const apiUrl = (path: string) => `${base}/api/v1${path.startsWith("/") ? path : `/${path}`}`;
+// Keep every browser request on the public OpsAgent origin. Vercel proxies
+// /api to the private Render service, while local Vite uses its dev proxy and
+// the combined Render image serves the same paths directly.
+export const apiUrl = (path: string) => `/api/v1${path.startsWith("/") ? path : `/${path}`}`;
 
 export const token = () => localStorage.getItem("opsagent_token") || "";
 
