@@ -150,6 +150,33 @@ def resolve_provider(organization_id: str, provider: str) -> dict[str, str] | No
     return decrypt_payload(organization_id, row[0]) if row else None
 
 
+def update_provider_fields(organization_id: str, actor: str, provider: str, updates: dict[str, str]):
+    """Update selected fields without returning or replacing stored secrets."""
+    clean = {str(key): str(value).strip() for key, value in updates.items() if str(value).strip()}
+    with database.connect(row_factory=dict_row) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("""SELECT credential_id,encrypted_payload FROM ops_agent.connector_credentials
+                WHERE organization_id=%s AND provider=%s AND status='active'
+                ORDER BY created_at DESC LIMIT 1 FOR UPDATE""", (organization_id, provider))
+            row = cursor.fetchone()
+            if not row:
+                raise KeyError("Credential not found")
+            payload = decrypt_payload(organization_id, row["encrypted_payload"])
+            payload.update(clean)
+            _validate_provider_credentials(provider, payload)
+            cursor.execute("""UPDATE ops_agent.connector_credentials SET encrypted_payload=%s,
+                metadata=%s::jsonb,updated_at=NOW() WHERE credential_id=%s AND organization_id=%s""",
+                (encrypt_payload(organization_id, payload), json.dumps(_safe_metadata(payload)),
+                 row["credential_id"], organization_id))
+            cursor.execute("""INSERT INTO ops_agent.organization_audit
+                (organization_id,actor,action,target,details)
+                VALUES (%s,%s,'connector_configuration_updated',%s,%s::jsonb)""",
+                (organization_id, actor, row["credential_id"],
+                 json.dumps({"provider": provider, "fields": sorted(clean)})))
+        connection.commit()
+    return {"provider": provider, "updated_fields": sorted(clean)}
+
+
 def record_test(organization_id: str, provider: str, success: bool, error: str | None = None):
     safe_error = str(error or "")[:500] or None
     with database.connect() as connection:

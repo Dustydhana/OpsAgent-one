@@ -123,6 +123,10 @@ class TerminationApprovalRequest(BaseModel):
     backup_confirmed: bool = False
 
 
+class AwsConfigurationRequest(BaseModel):
+    region: str = Field(pattern=r"^[a-z]{2}(?:-gov)?-[a-z]+-\d$")
+
+
 class DemoRequest(BaseModel):
     full_name: str = Field(min_length=2, max_length=120)
     business_email: str = Field(min_length=5, max_length=254, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
@@ -985,6 +989,25 @@ def create_secure_integration_connection(request: SecureIntegrationConnectionReq
 @app.get("/api/v1/integrations/credentials")
 def integration_credentials(_user=Depends(require_permission(authorization.MANAGE_CONNECTORS))):
     return credential_store.list_credentials(_user["organization_id"])
+
+
+@app.get("/api/v1/connections/aws/configuration")
+def aws_configuration(_user=Depends(require_permission(authorization.MANAGE_CONNECTORS))):
+    credentials = credential_store.resolve_provider(_user["organization_id"], "aws")
+    if not credentials:
+        raise HTTPException(404, "AWS connection is not configured")
+    return {"region": credentials.get("region") or "us-east-2"}
+
+
+@app.put("/api/v1/connections/aws/configuration")
+def update_aws_configuration(request: AwsConfigurationRequest, _user=Depends(require_permission(authorization.MANAGE_CONNECTORS))):
+    try:
+        credential_store.update_provider_fields(
+            _user["organization_id"], _user["username"], "aws", {"region": request.region}
+        )
+        return {"region": request.region, "updated": True}
+    except KeyError as error:
+        raise HTTPException(404, "AWS connection is not configured") from error
 
 
 @app.post("/api/v1/integrations/connections/{provider}/test")
