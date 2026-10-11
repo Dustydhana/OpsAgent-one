@@ -75,12 +75,35 @@ def start_background_connectors():
     # Slack Socket Mode blocks, so keep it beside FastAPI in a daemon thread.
     try:
         import config
-        if not (config.SLACK_BOT_TOKEN and config.SLACK_APP_TOKEN):
-            health_status.update("slack", "disabled", "Slack credentials are not configured")
+        tenant_slack = credential_store.resolve_latest_provider("slack")
+        if tenant_slack:
+            slack_organization_id, slack_credentials = tenant_slack
+        elif config.SLACK_BOT_TOKEN and config.SLACK_APP_TOKEN:
+            slack_organization_id = os.getenv("OPSAGENT_DEFAULT_ORGANIZATION_ID", "org-default")
+            slack_credentials = {
+                "bot_token": config.SLACK_BOT_TOKEN,
+                "app_token": config.SLACK_APP_TOKEN,
+                "channels": config.SLACK_CHANNEL,
+                "approvers": ",".join(config.SLACK_APPROVERS),
+                "allow_self_approval": str(config.SLACK_ALLOW_SELF_APPROVAL),
+            }
+        else:
+            health_status.update("slack", "disabled", "No active Slack connection is configured")
             return
         import main as operations_runtime
         import slack_actions
         import slack_handler
+        channel = next(
+            (value.strip() for value in slack_credentials.get("channels", "").split(",") if value.strip()),
+            "#ops-alerts",
+        )
+        slack_handler.configure(
+            slack_credentials.get("bot_token"),
+            slack_credentials.get("app_token"),
+            channel=channel,
+            approvers=slack_credentials.get("approvers"),
+            allow_self_approval=slack_credentials.get("allow_self_approval", "false"),
+        )
         slack_handler.register_alert_listener(
             operations_runtime.on_alert,
             on_mention=operations_runtime.on_mention,
@@ -96,6 +119,11 @@ def start_background_connectors():
                 ops_log.write("slack", "ERROR", "connector_stopped", str(exc))
 
         threading.Thread(target=run_slack, name="opsagent-slack", daemon=True).start()
+        ops_log.write(
+            "slack", "INFO", "connector_started",
+            f"organization={slack_organization_id}; channel={channel}",
+            organization_id=slack_organization_id,
+        )
     except Exception as exc:
         health_status.update("slack", "error", f"Startup failed: {exc}")
         ops_log.write("slack", "ERROR", "connector_start_failed", str(exc))

@@ -27,6 +27,24 @@ app = (
     else None
 )
 
+
+def configure(bot_token, app_token, channel=None, approvers=None, allow_self_approval=False):
+    """Configure Slack from an encrypted tenant credential at worker startup."""
+    global app
+    if not bot_token or not app_token:
+        raise RuntimeError("Slack bot and app tokens are required")
+    config.SLACK_BOT_TOKEN = bot_token
+    config.SLACK_APP_TOKEN = app_token
+    if channel:
+        config.SLACK_CHANNEL = channel
+    config.SLACK_APPROVERS = {
+        value.strip() for value in (approvers or "").split(",") if value.strip()
+    }
+    config.SLACK_ALLOW_SELF_APPROVAL = str(allow_self_approval).lower() in {
+        "1", "true", "yes", "on"
+    }
+    app = App(token=bot_token, token_verification_enabled=False)
+
 # Resolved lazily in start() once the bot is authenticated.
 _target_channel_id = None
 _channel_id_cache = {}

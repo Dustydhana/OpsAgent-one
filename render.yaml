@@ -25,7 +25,7 @@ services:
       - key: OPSAGENT_COOKIE_SECURE
         value: "true"
       - key: OPSAGENT_CONNECTORS_IN_API
-        value: "false"
+        value: "true"
       - key: APP_SIGNUP_ENABLED
         value: "false"
       - key: AWS_DRY_RUN

@@ -150,6 +150,25 @@ def resolve_provider(organization_id: str, provider: str) -> dict[str, str] | No
     return decrypt_payload(organization_id, row[0]) if row else None
 
 
+def resolve_latest_provider(provider: str) -> tuple[str, dict[str, str]] | None:
+    """Resolve the newest active provider credential for a background worker.
+
+    Interactive API requests always resolve by tenant. A background connector
+    has no signed-in request, so its bootstrap also needs the owning tenant ID.
+    """
+    with database.connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("""SELECT organization_id,encrypted_payload
+                FROM ops_agent.connector_credentials
+                WHERE provider=%s AND status='active'
+                ORDER BY created_at DESC LIMIT 1""", (provider,))
+            row = cursor.fetchone()
+    if not row:
+        return None
+    organization_id = str(row[0])
+    return organization_id, decrypt_payload(organization_id, row[1])
+
+
 def update_provider_fields(organization_id: str, actor: str, provider: str, updates: dict[str, str]):
     """Update selected fields without returning or replacing stored secrets."""
     clean = {str(key): str(value).strip() for key, value in updates.items() if str(value).strip()}
