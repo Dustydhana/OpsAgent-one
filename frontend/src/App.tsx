@@ -3187,9 +3187,6 @@ function SccmWorkspace() {
 }
 
 function ConnectionsCenter() {
-  type ReadinessCheck = {key:string;label:string;configured:boolean;required:boolean;guidance:string};
-  type ReadinessProvider = {id:string;name:string;status:"ready"|"attention";configured_connections:number;checks:ReadinessCheck[];missing:string[]};
-  type ConnectorReadiness = {summary:{ready:number;attention:number;total:number};providers:ReadinessProvider[];security:string};
   const [settings, setSettings] = useState<Preferences | null>(null);
   const [status, setStatus] = useState("");
   const [awsConnection, setAwsConnection] = useState<Record<string, unknown> | null>(null);
@@ -3204,9 +3201,6 @@ function ConnectionsCenter() {
   const [enrollmentToken, setEnrollmentToken] = useState("");
   const [copiedConnectorValue, setCopiedConnectorValue] = useState<"url"|"token"|"">("");
   const [savingConnector, setSavingConnector] = useState(false);
-  const [readiness, setReadiness] = useState<ConnectorReadiness | null>(null);
-  const [expandedReadiness, setExpandedReadiness] = useState<string>("aws");
-  const [showReadiness, setShowReadiness] = useState(false);
   const [showAwsPolicy, setShowAwsPolicy] = useState(false);
   const [connectionConfirmation, setConnectionConfirmation] = useState<{provider:string;action:"disconnect"|"delete"}|null>(null);
   const [awsPolicy, setAwsPolicy] = useState({region:"us-east-2",execution_mode:"validation",allowed_actions:"start_instance,stop_instance,reboot_instance",live_confirmation:""});
@@ -3223,15 +3217,13 @@ function ConnectionsCenter() {
       const results = await Promise.allSettled([
         api<Preferences>("/settings"),
         api<ConnectionRecord[]>("/integrations/connections"),
-        api<ConnectorReadiness>("/integrations/readiness"),
         api<{region:string;execution_mode:string;allowed_actions:string[]}>("/connections/aws/configuration"),
       ]);
       if (disposed) return;
       if (results[0].status === "fulfilled") setSettings(results[0].value);
       if (results[1].status === "fulfilled") setConnectionRecords(results[1].value);
-      if (results[2].status === "fulfilled") setReadiness(results[2].value);
-      if (results[3].status === "fulfilled") setAwsConfiguration(results[3].value);
-      const failures = results.slice(0,3).filter((result) => result.status === "rejected").length;
+      if (results[2].status === "fulfilled") setAwsConfiguration(results[2].value);
+      const failures = results.slice(0,2).filter((result) => result.status === "rejected").length;
       setStatus(failures ? `${failures} connection data source${failures > 1 ? "s are" : " is"} unavailable. Retrying automatically…` : "");
     };
     loadConnections();
@@ -3500,29 +3492,12 @@ function ConnectionsCenter() {
   connectionRecords.forEach((record)=>{if(!latestConnectionByProvider.has(record.provider))latestConnectionByProvider.set(record.provider,record)});
   const featuredProviderRecords = ["slack","gmail"].map((provider)=>latestConnectionByProvider.get(provider)||{provider,status:"disconnected",display_name:provider==="slack"?"Slack":"Gmail / Outlook"});
   const otherConnectedRecords = [...latestConnectionByProvider.values()].filter((record)=>!["aws","slack","gmail"].includes(record.provider)&&record.status!=="disconnected");
+  const platformIds = [...new Set(catalog.flatMap(([,items])=>items.map(([key])=>key)).filter((key)=>configurableConnectors.has(key)))];
+  const connectedCount = platformIds.filter((provider)=>latestConnectionByProvider.get(provider)?.status!==undefined&&latestConnectionByProvider.get(provider)?.status!=="disconnected").length;
+  const disconnectedCount = platformIds.length-connectedCount;
   return (
     <section className="connections-center">
-      <div className="connections-hero">
-        <div>
-          <p className="eyebrow">CONNECTION PLATFORMS</p>
-          <h2>Connect and manage every platform</h2>
-          <p>
-            Operate customer cloud, virtualization, endpoint and server platforms through
-            tenant-scoped identities, private gateways, approval and audit controls.
-          </p>
-        </div>
-        <span>
-          {new Set([...connectionRecords.map((record)=>record.provider),...(awsConnection?["aws"]:[])]).size} configured
-        </span>
-      </div>
-      {readiness && <section className={`connector-readiness ${showReadiness?"expanded":"compact"}`} aria-labelledby="connector-readiness-title">
-        <header><div><span className="eyebrow">SECURE CONFIGURATION PREFLIGHT</span><h2 id="connector-readiness-title">Platform readiness</h2><p>{readiness.summary.attention ? `${readiness.summary.attention} integration requirement(s) still need attention.` : "Every required platform control is configured."} Secret values are never displayed.</p></div><div className="readiness-summary"><span className="ready"><CheckCircle2/>{readiness.summary.ready} ready</span><span className={readiness.summary.attention ? "attention" : "ready"}><AlertTriangle/>{readiness.summary.attention} need setup</span><button type="button" onClick={()=>setShowReadiness((value)=>!value)}>{showReadiness?"Hide details":"Review requirements"}<ChevronDown/></button></div></header>
-        {showReadiness&&<div className="readiness-grid">{readiness.providers.map((provider)=><article className={provider.status} key={provider.id}>
-          <button type="button" onClick={()=>setExpandedReadiness(expandedReadiness===provider.id?"":provider.id)} aria-expanded={expandedReadiness===provider.id}><span>{provider.status==="ready"?<CheckCircle2/>:<AlertTriangle/>}<b>{provider.name}</b></span><em>{provider.status==="ready"?"Ready":"Needs setup"}</em><ChevronRight/></button>
-          {expandedReadiness===provider.id&&<div className="readiness-checks">{provider.checks.map((check)=><div key={check.key} className={check.configured?"configured":"missing"}>{check.configured?<CheckCircle2/>:<AlertTriangle/>}<span><b>{check.label}{!check.required&&<small> Recommended</small>}</b><p>{check.configured?"Configured":check.guidance}</p></span></div>)}</div>}
-        </article>)}</div>}
-        {showReadiness&&<footer><ShieldCheck/><span>{readiness.security}</span></footer>}
-      </section>}
+      <header className="connections-summary"><div><span className="eyebrow">INTEGRATIONS</span><h2>Connections</h2></div><div><span className="connected"><CheckCircle2/><b>{connectedCount}</b> Connected</span><span className="disconnected"><Cable/><b>{disconnectedCount}</b> Not connected</span></div></header>
       <section className="connected-platforms" aria-labelledby="connected-platforms-title">
       <div className="section-heading"><div><span className="eyebrow">CONNECTED PLATFORMS</span><h2 id="connected-platforms-title">Customer connections</h2><p>Manage credentials, verification and lifecycle from one place.</p></div></div>
       <section className="connector-quickstart">
