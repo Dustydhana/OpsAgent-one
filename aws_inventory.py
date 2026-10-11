@@ -141,9 +141,8 @@ def _persist(records, regions, organization_id=None):
                           for column in _COLUMNS]
                 placeholders = ["%s::jsonb" if column == "volume_details" else "%s" for column in _COLUMNS]
                 cursor.execute(f"""INSERT INTO ops_agent.aws_ec2_inventory (organization_id,{','.join(_COLUMNS)})
-                    VALUES (%s,{','.join(placeholders)}) ON CONFLICT (region,instance_id) DO UPDATE SET
+                    VALUES (%s,{','.join(placeholders)}) ON CONFLICT (organization_id,region,instance_id) DO UPDATE SET
                     {','.join(f'{c}=EXCLUDED.{c}' for c in _COLUMNS if c not in ('region','instance_id'))},last_seen_at=NOW()""", [organization_id, *values])
-                # organization_id is immutable ownership for a globally unique EC2 instance ID.
                 address = row.get("public_ip") or row.get("private_ip")
                 if not address:
                     continue

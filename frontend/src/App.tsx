@@ -2474,6 +2474,9 @@ function LinuxOperations({ servers }: { servers: Machine[] }) {
 }
 
 function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNavigate?: (page: string) => void }) {
+  const [inventory, setInventory] = useState(servers);
+  const [syncingInventory, setSyncingInventory] = useState(false);
+  const [inventoryMessage, setInventoryMessage] = useState("");
   const [action, setAction] = useState("start_instance");
   const [target, setTarget] = useState(servers[0]?.aws_instance_id || "");
   const [confirmation, setConfirmation] = useState("");
@@ -2488,6 +2491,20 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
   const [busy, setBusy] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [progressStage, setProgressStage] = useState(0);
+  useEffect(() => { setInventory(servers); if (!target && servers[0]?.aws_instance_id) setTarget(servers[0].aws_instance_id); }, [servers, target]);
+  async function refreshInventory() {
+    setSyncingInventory(true);
+    setInventoryMessage("");
+    try {
+      const result = await api<{synchronized:number}>("/connections/aws/sync", { method: "POST" });
+      const records = await api<Machine[]>("/inventory/servers");
+      const awsRecords = records.filter((item) => item.vm_type === "aws" && item.enabled !== false && item.status !== "terminated");
+      setInventory(awsRecords);
+      if (!target && awsRecords[0]?.aws_instance_id) setTarget(awsRecords[0].aws_instance_id);
+      setInventoryMessage(result.synchronized ? `${result.synchronized} AWS resource(s) synchronized.` : "Connection succeeded, but no EC2 instances were found in the configured region.");
+    } catch (error) { setInventoryMessage((error as Error).message); }
+    finally { setSyncingInventory(false); }
+  }
   const instanceActions = [
     "start_instance",
     "stop_instance",
@@ -2565,7 +2582,7 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
       setBusy(false);
     }
   }
-  const selected = servers.find((x) => x.aws_instance_id === target);
+  const selected = inventory.find((x) => x.aws_instance_id === target);
   const selectedOsText = `${selected?.os_type || ""} ${selected?.os_version || ""}`.toLowerCase();
   const selectedOs = selectedOsText.includes("windows") ? "windows" : selectedOsText.includes("linux") ? "linux" : "unknown";
   const optionOs = (server: Machine) => {
@@ -2574,7 +2591,8 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
   };
   return (
     <>
-      <section className="operation-page-lead"><div className="operation-lead-icon"><FaAws /></div><div><span>AMAZON WEB SERVICES</span><h2>Guarded AWS operations</h2><p>Preview, approve, execute and verify infrastructure changes from one controlled workspace.</p></div><div className="aws-lead-actions"><div className="operation-lead-state"><i />{servers.length} managed resources</div><button onClick={() => { sessionStorage.setItem("opsagent-chat-draft", "Provision a new AWS EC2 virtual machine."); onNavigate?.("OpsAgent chat"); }}><Sparkles /> Create new VM with agent</button></div></section>
+      <section className="operation-page-lead"><div className="operation-lead-icon"><FaAws /></div><div><span>AMAZON WEB SERVICES</span><h2>Guarded AWS operations</h2><p>Preview, approve, execute and verify infrastructure changes from one controlled workspace.</p></div><div className="aws-lead-actions"><div className="operation-lead-state"><i />{inventory.length} managed resources</div><button onClick={refreshInventory} disabled={syncingInventory}><RefreshCw className={syncingInventory?"spin":""}/>{syncingInventory?"Synchronizing…":"Refresh inventory"}</button><button onClick={() => { sessionStorage.setItem("opsagent-chat-draft", "Provision a new AWS EC2 virtual machine."); onNavigate?.("OpsAgent chat"); }}><Sparkles /> Create new VM with agent</button></div></section>
+      {inventoryMessage&&<div className={`aws-inventory-message ${inventory.length?"success":"attention"}`}>{inventory.length?<CheckCircle2/>:<AlertTriangle/>}<span>{inventoryMessage}{!inventory.length&&" Check that the selected region contains EC2 instances and the IAM policy allows ec2:DescribeInstances."}</span></div>}
       <section className="aws-overview">
         <article className="aws-command">
           <div className="panel-title">
@@ -2619,7 +2637,7 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
                       setConfirmation("");
                     }}
                   >
-                    {servers.map((s) => (
+                    {inventory.map((s) => (
                       <option value={s.aws_instance_id} key={s.aws_instance_id}>
                         {optionOs(s)} · {s.server_name} · {s.aws_instance_id}
                       </option>

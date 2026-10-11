@@ -49,6 +49,17 @@ def migrate(organization_id: str) -> None:
                     REFERENCES ops_agent.organizations(organization_id) ON DELETE RESTRICT;
                 EXCEPTION WHEN duplicate_object THEN NULL; END $$
             """)
+            # Legacy primary/unique keys were global. Replace them with
+            # tenant-scoped keys so two organizations may inventory resources
+            # with the same hostname, address or AWS instance identifier.
+            cursor.execute("ALTER TABLE ops_agent.server_inventory DROP CONSTRAINT IF EXISTS server_inventory_pkey")
+            cursor.execute("ALTER TABLE ops_agent.server_inventory DROP CONSTRAINT IF EXISTS server_inventory_ip_address_key")
+            cursor.execute("""DO $$ BEGIN
+                ALTER TABLE ops_agent.server_inventory ADD CONSTRAINT server_inventory_pkey
+                PRIMARY KEY (organization_id, server_name);
+            EXCEPTION WHEN duplicate_object THEN NULL; END $$""")
+            cursor.execute("""CREATE UNIQUE INDEX IF NOT EXISTS server_inventory_org_ip_unique
+                ON ops_agent.server_inventory(organization_id, ip_address)""")
         connection.commit()
 
 

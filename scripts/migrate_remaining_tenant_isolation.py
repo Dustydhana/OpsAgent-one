@@ -35,6 +35,11 @@ def migrate(organization_id: str):
                     cursor.execute(f"""ALTER TABLE ops_agent.{table}
                         ADD CONSTRAINT {table}_organization_fk FOREIGN KEY (organization_id)
                         REFERENCES ops_agent.organizations(organization_id) ON DELETE RESTRICT""")
+            cursor.execute("ALTER TABLE ops_agent.aws_ec2_inventory DROP CONSTRAINT IF EXISTS aws_ec2_inventory_pkey")
+            cursor.execute("""DO $$ BEGIN
+                ALTER TABLE ops_agent.aws_ec2_inventory ADD CONSTRAINT aws_ec2_inventory_pkey
+                PRIMARY KEY (organization_id, region, instance_id);
+            EXCEPTION WHEN duplicate_object THEN NULL; END $$""")
         connection.commit()
 
 

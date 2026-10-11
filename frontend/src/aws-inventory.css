@@ -1,0 +1,41 @@
+.aws-inventory-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -6px 0 18px;
+  padding: 12px 14px;
+  border: 1px solid #c9dfd4;
+  border-radius: 8px;
+  background: #f1faf6;
+  color: #176747;
+  font-size: 11px;
+}
+
+.aws-inventory-message svg {
+  width: 17px;
+  flex: 0 0 17px;
+}
+
+.aws-inventory-message.attention {
+  border-color: #efd39a;
+  background: #fff8e8;
+  color: #865d08;
+}
+
+.aws-lead-actions {
+  grid-template-columns: auto auto;
+}
+
+.aws-lead-actions .operation-lead-state {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 650px) {
+  .aws-lead-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .aws-lead-actions .operation-lead-state {
+    grid-column: auto;
+  }
+}
