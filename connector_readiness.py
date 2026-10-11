@@ -53,15 +53,6 @@ def get_readiness(organization_id: str) -> dict:
             _check("role", "Customer role ARN", _present("AWS_ROLE_ARN"), "Set AWS_ROLE_ARN for cross-account access.", required=False),
             _check("external_id", "Role external ID", _present("AWS_EXTERNAL_ID"), "Set AWS_EXTERNAL_ID when the customer role requires it.", required=False),
         ], counts.get("aws", 0)),
-        _provider("google", "Google sign-in", [
-            _check("client_id", "Google client ID", _present("GOOGLE_CLIENT_ID"), "Set GOOGLE_CLIENT_ID in Render."),
-            _check("client_secret", "Google client secret", _present("GOOGLE_CLIENT_SECRET"), "Set GOOGLE_CLIENT_SECRET in Render."),
-        ]),
-        _provider("microsoft", "Microsoft sign-in", [
-            _check("client_id", "Microsoft client ID", _present("MICROSOFT_CLIENT_ID"), "Set MICROSOFT_CLIENT_ID in Render."),
-            _check("client_secret", "Microsoft client secret", _present("MICROSOFT_CLIENT_SECRET"), "Set MICROSOFT_CLIENT_SECRET in Render."),
-            _check("tenant", "Microsoft tenant ID", _present("MICROSOFT_TENANT_ID"), "Set MICROSOFT_TENANT_ID in Render."),
-        ]),
         _provider("slack", "Slack", [
             _check("bot_token", "Slack bot token", _present("SLACK_BOT_TOKEN"), "Set SLACK_BOT_TOKEN in Render."),
             _check("app_token", "Slack app token", _present("SLACK_APP_TOKEN"), "Set SLACK_APP_TOKEN in Render."),

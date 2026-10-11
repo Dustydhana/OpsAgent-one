@@ -323,9 +323,6 @@ const navGroups = [
 ] as const;
 
 function Login({ onLogin }: { onLogin: (user: User) => void }) {
-  const [providers, setProviders] = useState<
-    { id: string; label: string; configured: boolean }[]
-  >([]);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -341,6 +338,9 @@ function Login({ onLogin }: { onLogin: (user: User) => void }) {
   const [demoBusy, setDemoBusy] = useState(false);
   const [demoError, setDemoError] = useState("");
   const [demoResult, setDemoResult] = useState("");
+  const [providers, setProviders] = useState<
+    { id: string; label: string; configured: boolean }[]
+  >([]);
   const [demoForm, setDemoForm] = useState({ full_name: "", business_email: "", company: "", job_role: "", phone: "", estate_size: "", interests: ["AWS", "Windows", "SCCM"], message: "", website: "" });
   const heroWords = ["Discover", "Request", "Acknowledge", "Investigate", "Approve", "Operate", "Verify", "Secure"];
   const capabilities = [
@@ -3129,9 +3129,6 @@ function ConnectionsCenter() {
   type ReadinessProvider = {id:string;name:string;status:"ready"|"attention";configured_connections:number;checks:ReadinessCheck[];missing:string[]};
   type ConnectorReadiness = {summary:{ready:number;attention:number;total:number};providers:ReadinessProvider[];security:string};
   const [settings, setSettings] = useState<Preferences | null>(null);
-  const [providers, setProviders] = useState<
-    { id: string; label: string; configured: boolean }[]
-  >([]);
   const [status, setStatus] = useState("");
   const [awsConnection, setAwsConnection] = useState<Record<string, unknown> | null>(null);
   const [testingAws, setTestingAws] = useState(false);
@@ -3150,18 +3147,13 @@ function ConnectionsCenter() {
     const loadConnections = async () => {
       const results = await Promise.allSettled([
         api<Preferences>("/settings"),
-        fetch(apiUrl("/auth/providers")).then((response) => {
-          if (!response.ok) throw new Error(`Identity providers failed (${response.status})`);
-          return response.json() as Promise<{ id: string; label: string; configured: boolean }[]>;
-        }),
         api<Array<{provider:string;status:string;display_name:string}>>("/integrations/connections"),
         api<ConnectorReadiness>("/integrations/readiness"),
       ]);
       if (disposed) return;
       if (results[0].status === "fulfilled") setSettings(results[0].value);
-      if (results[1].status === "fulfilled") setProviders(results[1].value);
-      if (results[2].status === "fulfilled") setConnectionRecords(results[2].value);
-      if (results[3].status === "fulfilled") setReadiness(results[3].value);
+      if (results[1].status === "fulfilled") setConnectionRecords(results[1].value);
+      if (results[2].status === "fulfilled") setReadiness(results[2].value);
       const failures = results.filter((result) => result.status === "rejected").length;
       setStatus(failures ? `${failures} connection data source${failures > 1 ? "s are" : " is"} unavailable. Retrying automatically…` : "");
     };
@@ -3242,6 +3234,11 @@ function ConnectionsCenter() {
       ],
     ],
   ] as [string, string[][]][];
+  const configurableConnectors = new Set([
+    "aws","azure","gcp","oracle","ibmcloud","alibaba","vmware","nutanix",
+    "openstack","hyperv","kubernetes","sccm","windows","linux","network",
+    "storage","cisco","dell","hpe","grafana","datadog","solarwinds","nagios","slack",
+  ]);
   async function toggle(key: string) {
     if (!settings) return;
     const current = settings;
@@ -3370,7 +3367,7 @@ function ConnectionsCenter() {
             </div>
           </div>
           <div className="connection-grid">
-            {items.map(([key, name, description]) => (
+            {items.filter(([key])=>configurableConnectors.has(key)).map(([key, name, description]) => (
               <article key={key}>
                 <div className="extension-icon">{connectorIcon(key)}</div>
                 <div>
@@ -3384,34 +3381,6 @@ function ConnectionsCenter() {
           </div>
         </section>
       ))}
-      <section className="connection-group">
-        <div className="section-heading">
-          <div>
-            <h2>Identity providers</h2>
-            <p>Enterprise sign-in methods shown on the login page</p>
-          </div>
-        </div>
-        <div className="identity-grid">
-          {providers.map((x) => (
-            <article key={x.id}>
-              <ShieldCheck />
-              <div>
-                <strong>{x.label}</strong>
-                <p>
-                  {x.configured
-                    ? "Configured and available"
-                    : "Add client ID and secret to the API environment"}
-                </p>
-              </div>
-              <span
-                className={`connection-state ${x.configured ? "ready" : "setup"}`}
-              >
-                {x.configured ? "Ready" : "Setup required"}
-              </span>
-            </article>
-          ))}
-        </div>
-      </section>
       {status && <div className="connection-toast">{status}</div>}
     </section>
   );
