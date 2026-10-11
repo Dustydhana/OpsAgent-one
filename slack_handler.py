@@ -18,10 +18,14 @@ import config
 import health_status
 import retry_policy
 
-# Single shared Bolt app instance for the whole process. Avoid Slack's eager
-# auth.test during import so the standalone Streamlit dashboard can start when
-# Slack is temporarily unreachable. start() performs an explicit auth_test.
-app = App(token=config.SLACK_BOT_TOKEN, token_verification_enabled=False)
+# Slack is an optional connector. Constructing Bolt without a token raises at
+# import time, which must not prevent the core API from starting. The backend
+# only registers and starts Slack when both connector tokens are configured.
+app = (
+    App(token=config.SLACK_BOT_TOKEN, token_verification_enabled=False)
+    if config.SLACK_BOT_TOKEN
+    else None
+)
 
 # Resolved lazily in start() once the bot is authenticated.
 _target_channel_id = None
@@ -480,6 +484,8 @@ def register_alert_listener(on_alert, on_mention=None, on_action=None, action_re
 def start():
     """Resolve the target channel and start the Socket Mode connection (blocking)."""
     global _target_channel_id, _bot_user_id
+    if app is None or not config.SLACK_APP_TOKEN:
+        raise RuntimeError("Slack is not configured; set SLACK_BOT_TOKEN and SLACK_APP_TOKEN")
     try:
         auth = app.client.auth_test()
         _bot_user_id = auth.get("user_id")
