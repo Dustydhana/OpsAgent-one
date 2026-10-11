@@ -1343,9 +1343,21 @@ def on_mention(_text, channel, ts):
 
 
 def on_slack_action(text, channel, ts, requester, *, thread_ts=None, mentioned=False):
-    return slack_actions.handle_message(
+    handled = slack_actions.handle_message(
         text, channel, ts, requester, thread_ts=thread_ts, mentioned=mentioned
     )
+    if not handled:
+        return False
+    event_key = f"slack-action:{ts}"
+    request_mode = "cloud_action"
+    audit = {
+        "requester": slack_handler.requester_label(requester),
+        "target_name": agent.extract_server_address(text, None) or "Pending resolution",
+        "request_text": text,
+    }
+    alert_metrics.record("received", event_key, request_mode, ts, **audit)
+    alert_metrics.record("acknowledged", event_key, request_mode, ts, **audit)
+    return True
 
 
 def main():

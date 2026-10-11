@@ -90,6 +90,10 @@ def start_background_connectors():
         else:
             health_status.update("slack", "disabled", "No active Slack connection is configured")
             return
+        # Slack is a request-less background worker. Bind legacy operational
+        # modules to the tenant that owns this worker so inventory, audit and
+        # metrics never fall back to the deployment placeholder organization.
+        config.DEFAULT_ORGANIZATION_ID = slack_organization_id
         import main as operations_runtime
         import slack_actions
         import slack_handler

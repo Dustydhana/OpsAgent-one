@@ -82,7 +82,7 @@ def recent_alerts(hours=24, limit=100, organization_id=None):
                 item[destination] = row[source]
     labels = {"health_query":"Server health","cpu_query":"CPU","memory_query":"Memory","disk_query":"Disk",
               "patch_query":"Patching","monitoring_query":"Monitoring","reboot_query":"Logs / reboot",
-              "summary_query":"A-Z overview","incident":"Incident"}
+              "summary_query":"A-Z overview","incident":"Incident","cloud_action":"Cloud operation"}
     output = []
     for item in grouped.values():
         events, times = item.pop("events"), item.pop("event_times")
