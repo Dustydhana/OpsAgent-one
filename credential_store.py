@@ -59,7 +59,7 @@ def _validate_provider_credentials(provider: str, secrets: dict[str, str]):
     required = {
         "aws": {"aws_access_key_id", "aws_secret_access_key", "region"},
         "slack": {"bot_token", "app_token", "channels", "approvers"},
-        "gmail": {"username", "app_password", "imap_host"},
+        "gmail": {"username", "app_password", "imap_host", "request_senders", "approvers"},
         "vmware": {"endpoint", "username", "password"},
     }.get(provider, set())
     missing = sorted(key for key in required if not secrets.get(key, "").strip())
@@ -70,6 +70,11 @@ def _validate_provider_credentials(provider: str, secrets: dict[str, str]):
             raise ValueError("Slack bot token must begin with xoxb-")
         if not secrets["app_token"].startswith("xapp-"):
             raise ValueError("Slack app token must begin with xapp-")
+    if provider == "gmail":
+        for key in ("username", "request_senders", "approvers"):
+            values = [value.strip() for value in secrets[key].split(",") if value.strip()]
+            if not values or any("@" not in value or value.startswith("@") or value.endswith("@") for value in values):
+                raise ValueError(f"{key.replace('_', ' ').title()} must contain valid email addresses")
 
 
 def create_connection(organization_id: str, actor: str, provider: str, display_name: str,

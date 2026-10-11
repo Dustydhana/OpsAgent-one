@@ -50,3 +50,24 @@ def test_slack_token_prefixes_are_validated():
         assert False, "invalid Slack token prefix must fail"
     except ValueError as error:
         assert "xoxb-" in str(error)
+
+
+def test_gmail_requires_workflow_allowlists():
+    try:
+        credential_store._validate_provider_credentials("gmail", {
+            "username": "ops@example.com", "app_password": "secret", "imap_host": "imap.gmail.com"
+        })
+        assert False, "expected missing workflow fields"
+    except ValueError as error:
+        assert "approvers" in str(error)
+
+
+def test_gmail_validates_email_allowlists():
+    try:
+        credential_store._validate_provider_credentials("gmail", {
+            "username": "ops@example.com", "app_password": "secret", "imap_host": "imap.gmail.com",
+            "request_senders": "not-an-email", "approvers": "lead@example.com",
+        })
+        assert False, "expected invalid sender"
+    except ValueError as error:
+        assert "Request Senders" in str(error)

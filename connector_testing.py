@@ -36,7 +36,12 @@ def test_email(credentials: dict[str, str]) -> dict:
         with smtplib.SMTP(smtp_host, int(credentials.get("smtp_port") or 587), timeout=15) as sender:
             sender.starttls()
             sender.login(username, password)
-    return {"connected": True, "provider": "gmail", "account": username, "imap_host": host}
+    request_senders = [value.strip() for value in credentials.get("request_senders", "").split(",") if value.strip()]
+    approvers = [value.strip() for value in credentials.get("approvers", "").split(",") if value.strip()]
+    return {"connected": True, "provider": "gmail", "account": username, "imap_host": host,
+            "folder": credentials.get("imap_folder") or "INBOX", "smtp_verified": bool(smtp_host),
+            "authorized_senders": len(request_senders), "approvers": len(approvers),
+            "processing_mode": "mailbox_verified"}
 
 
 def test_vmware(credentials: dict[str, str]) -> dict:

@@ -3278,7 +3278,7 @@ function ConnectionsCenter() {
     setSelectedConnector({key,name,description});
     setConnectionMode(gatewayProviders.has(key)?"gateway":"api");
     setConnectorForm({display_name:`${name} connection`,endpoint:"",credential_reference:"",platform:"windows"});
-    const connectorDefaults:Record<string,Record<string,string>>={aws:{region:"us-east-2"},slack:{allow_self_approval:"false"},gmail:{imap_port:"993",smtp_port:"587"},vmware:{port:"443",verify_ssl:"true"}};
+    const connectorDefaults:Record<string,Record<string,string>>={aws:{region:"us-east-2"},slack:{allow_self_approval:"false"},gmail:{auth_method:"app_password",imap_host:"imap.gmail.com",imap_port:"993",imap_folder:"INBOX",smtp_host:"smtp.gmail.com",smtp_port:"587",poll_seconds:"30",approval_expiry_minutes:"30"},vmware:{port:"443",verify_ssl:"true"}};
     setConnectorSecrets(connectorDefaults[key]||{});
     setEnrollmentToken("");
     setCopiedConnectorValue("");
@@ -3291,7 +3291,7 @@ function ConnectionsCenter() {
       azure:[{key:"tenant_id",label:"Tenant ID"},{key:"client_id",label:"Client ID"},{key:"client_secret",label:"Client secret",secret:true},{key:"subscription_id",label:"Subscription ID"}],
       gcp:[{key:"service_account_json",label:"Service account JSON",secret:true}],
       slack:[{key:"bot_token",label:"Bot user OAuth token",secret:true,placeholder:"xoxb-…"},{key:"app_token",label:"Socket Mode app token",secret:true,placeholder:"xapp-…"},{key:"channels",label:"Channels to monitor",placeholder:"C0123456789, #operations"},{key:"approvers",label:"Approved Slack users",placeholder:"U0123456789, U9876543210"},{key:"webhook_url",label:"Incoming webhook URL",secret:true,placeholder:"Optional"},{key:"signing_secret",label:"Signing secret",secret:true,placeholder:"Optional"},{key:"allow_self_approval",label:"Allow self-approval",options:["false","true"]}],
-      gmail:[{key:"username",label:"Email address"},{key:"app_password",label:"App password",secret:true},{key:"imap_host",label:"IMAP host",placeholder:"imap.gmail.com"},{key:"imap_port",label:"IMAP port",placeholder:"993"},{key:"smtp_host",label:"SMTP host",placeholder:"smtp.gmail.com"},{key:"smtp_port",label:"SMTP port",placeholder:"587"}],
+      gmail:[{key:"auth_method",label:"Authentication",options:["app_password"]},{key:"username",label:"Service mailbox",placeholder:"ops@company.com"},{key:"app_password",label:"Google app password",secret:true,placeholder:"16-character app password"},{key:"imap_folder",label:"Folder to monitor",placeholder:"INBOX"},{key:"request_senders",label:"Authorized request senders",placeholder:"operator@company.com, noc@company.com"},{key:"approvers",label:"Approved change approvers",placeholder:"manager@company.com, lead@company.com"},{key:"imap_host",label:"IMAP host",placeholder:"imap.gmail.com"},{key:"imap_port",label:"IMAP port",placeholder:"993"},{key:"smtp_host",label:"SMTP host",placeholder:"smtp.gmail.com"},{key:"smtp_port",label:"SMTP port",placeholder:"587"},{key:"poll_seconds",label:"Check for mail every (seconds)",placeholder:"30"},{key:"approval_expiry_minutes",label:"Approval expires after (minutes)",placeholder:"30"}],
       vmware:[{key:"endpoint",label:"vCenter hostname or IP"},{key:"username",label:"Service account username"},{key:"password",label:"Password",secret:true},{key:"port",label:"HTTPS port",placeholder:"443"},{key:"verify_ssl",label:"Verify TLS certificate",placeholder:"true"}],
       servicenow:[{key:"username",label:"Service account username"},{key:"password",label:"Password",secret:true},{key:"instance",label:"Instance URL"}],
       jira:[{key:"email",label:"Service account email"},{key:"api_token",label:"API token",secret:true}],
@@ -3343,7 +3343,7 @@ function ConnectionsCenter() {
           try{
             await api(`/integrations/connections/${selectedConnector.key}/test`,{method:"POST"});
             setConnectionRecords((current)=>current.map((item,index)=>index===0?{...item,status:"connected"}:item));
-            setStatus(`${selectedConnector.name} connected successfully.`);
+            setStatus(selectedConnector.key==="gmail"?"Gmail mailbox and outbound mail verified. Tenant background processing is the next activation step.":`${selectedConnector.name} connected successfully.`);
             setSelectedConnector(null);
           }catch(validationError){setStatus(`Credentials saved securely, but validation failed: ${(validationError as Error).message}`)}
         }else {setStatus("Credentials encrypted and connection saved. Provider validation is still required.");setSelectedConnector(null)}
