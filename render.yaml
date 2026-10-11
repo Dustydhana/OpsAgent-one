@@ -12,6 +12,8 @@ services:
         sync: false
       - key: OPSAGENT_API_SECRET
         sync: false
+      - key: OPSAGENT_CREDENTIAL_MASTER_KEY
+        sync: false
       - key: OPSAGENT_FRONTEND_URL
         value: https://ops-agent-one.vercel.app
       - key: OPSAGENT_OAUTH_CALLBACK_BASE

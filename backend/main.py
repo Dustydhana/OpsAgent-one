@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 
 import ai_usage
 import agent
@@ -16,6 +16,7 @@ import auth
 import chat_store
 import chat_operations
 import connector_readiness
+import credential_store
 import config
 import database
 import email_metrics
@@ -243,6 +244,14 @@ class IntegrationConnectionRequest(BaseModel):
     endpoint: str | None = Field(default=None, max_length=500)
     credential_reference: str | None = Field(default=None, max_length=500)
     configuration: dict = Field(default_factory=dict)
+
+
+class SecureIntegrationConnectionRequest(BaseModel):
+    provider: str
+    display_name: str = Field(min_length=2, max_length=120)
+    endpoint: str | None = Field(default=None, max_length=500)
+    configuration: dict = Field(default_factory=dict)
+    credentials: dict[str, SecretStr]
 
 
 class GatewayRegistrationRequest(BaseModel):
@@ -939,6 +948,25 @@ def create_integration_connection(request: IntegrationConnectionRequest, _user=D
         )
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
+
+
+@app.post("/api/v1/integrations/connections/secure", status_code=201)
+def create_secure_integration_connection(request: SecureIntegrationConnectionRequest, _user=Depends(require_permission(authorization.MANAGE_CONNECTORS))):
+    try:
+        return credential_store.create_connection(
+            _user["organization_id"], _user["username"], request.provider,
+            request.display_name, "api", request.endpoint, request.configuration,
+            {key: value.get_secret_value() for key, value in request.credentials.items()},
+        )
+    except credential_store.CredentialVaultUnavailable as error:
+        raise HTTPException(503, str(error)) from error
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+
+
+@app.get("/api/v1/integrations/credentials")
+def integration_credentials(_user=Depends(require_permission(authorization.MANAGE_CONNECTORS))):
+    return credential_store.list_credentials(_user["organization_id"])
 
 
 @app.get("/api/v1/gateways")

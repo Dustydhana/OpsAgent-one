@@ -249,6 +249,13 @@ def _initialize_once():
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             CONSTRAINT integration_connection_type_check CHECK(connection_type IN ('api','gateway')),
             CONSTRAINT integration_status_check CHECK(status IN ('configured','connected','attention','disabled')))""",
+        """CREATE TABLE IF NOT EXISTS ops_agent.connector_credentials (
+            credential_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES ops_agent.organizations(organization_id) ON DELETE CASCADE,
+            provider TEXT NOT NULL, name TEXT NOT NULL, encrypted_payload TEXT NOT NULL,
+            metadata JSONB NOT NULL DEFAULT '{}'::jsonb, status TEXT NOT NULL DEFAULT 'active',
+            key_version INTEGER NOT NULL DEFAULT 1, created_by TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            CONSTRAINT connector_credential_status_check CHECK(status IN ('active','disabled','rotating')))""",
         """CREATE TABLE IF NOT EXISTS ops_agent.customer_gateways (
             gateway_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES ops_agent.organizations(organization_id) ON DELETE CASCADE,
             name TEXT NOT NULL, platform TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
@@ -379,6 +386,7 @@ def _initialize_once():
         "CREATE INDEX IF NOT EXISTS cloud_operation_audit_time_idx ON ops_agent.cloud_operation_audit(occurred_at DESC)",
         "CREATE INDEX IF NOT EXISTS cloud_operation_audit_request_idx ON ops_agent.cloud_operation_audit(request_id)",
         "CREATE INDEX IF NOT EXISTS app_user_audit_time_idx ON ops_agent.app_user_audit(occurred_at DESC)",
+        "CREATE INDEX IF NOT EXISTS connector_credentials_org_idx ON ops_agent.connector_credentials(organization_id,provider)",
         "CREATE INDEX IF NOT EXISTS vmware_hosts_seen_idx ON ops_agent.vmware_hosts(last_seen_at DESC)",
         "CREATE INDEX IF NOT EXISTS vmware_vms_seen_idx ON ops_agent.vmware_virtual_machines(last_seen_at DESC)",
         "CREATE INDEX IF NOT EXISTS aws_ec2_inventory_seen_idx ON ops_agent.aws_ec2_inventory(last_seen_at DESC)",

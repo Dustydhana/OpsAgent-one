@@ -1,0 +1,116 @@
+"""Encrypted, tenant-scoped connector credential storage.
+
+The public API never exposes decrypted material. Decryption is available only
+to backend connector code through ``resolve``.
+"""
+
+import base64
+import hashlib
+import json
+import os
+import uuid
+
+from cryptography.fernet import Fernet, InvalidToken
+from psycopg.rows import dict_row
+
+import database
+import integration_store
+
+
+class CredentialVaultUnavailable(RuntimeError):
+    pass
+
+
+def _master_key() -> bytes:
+    value = os.getenv("OPSAGENT_CREDENTIAL_MASTER_KEY", "").strip()
+    if len(value) < 32:
+        raise CredentialVaultUnavailable(
+            "Credential vault is not initialized. Set OPSAGENT_CREDENTIAL_MASTER_KEY to at least 32 random characters."
+        )
+    return value.encode()
+
+
+def _cipher(organization_id: str) -> Fernet:
+    # Tenant-derived keys provide cryptographic separation while retaining one
+    # rotatable platform root key outside the database.
+    digest = hashlib.sha256(_master_key() + b"\x00" + organization_id.encode()).digest()
+    return Fernet(base64.urlsafe_b64encode(digest))
+
+
+def encrypt_payload(organization_id: str, payload: dict[str, str]) -> str:
+    return _cipher(organization_id).encrypt(json.dumps(payload, separators=(",", ":")).encode()).decode()
+
+
+def decrypt_payload(organization_id: str, encrypted_payload: str) -> dict[str, str]:
+    try:
+        value = json.loads(_cipher(organization_id).decrypt(encrypted_payload.encode()).decode())
+    except (InvalidToken, ValueError, json.JSONDecodeError) as error:
+        raise CredentialVaultUnavailable("Credential cannot be decrypted with the active master key") from error
+    if not isinstance(value, dict):
+        raise CredentialVaultUnavailable("Credential payload is invalid")
+    return {str(key): str(item) for key, item in value.items()}
+
+
+def _safe_metadata(secrets: dict[str, str]) -> dict:
+    return {"fields": sorted(secrets), "field_count": len(secrets)}
+
+
+def create_connection(organization_id: str, actor: str, provider: str, display_name: str,
+                      connection_type: str, endpoint: str | None, configuration: dict,
+                      secrets: dict[str, str]):
+    if provider not in {item["id"] for item in integration_store.CATALOG}:
+        raise ValueError("Unknown integration provider")
+    if connection_type != "api":
+        raise ValueError("Encrypted application credentials are supported for API connections")
+    clean = {str(key).strip(): str(value).strip() for key, value in secrets.items() if str(value).strip()}
+    if not clean or len(clean) > 20:
+        raise ValueError("Provide between 1 and 20 credential fields")
+    if any(not key or len(key) > 80 or len(value) > 8000 for key, value in clean.items()):
+        raise ValueError("Credential field limits were exceeded")
+    credential_id = f"cred_{uuid.uuid4().hex}"
+    connection_id = f"con_{uuid.uuid4().hex}"
+    encrypted = encrypt_payload(organization_id, clean)
+    reference = f"opsagent-vault://{credential_id}"
+    with database.connect(row_factory=dict_row) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("""INSERT INTO ops_agent.connector_credentials
+                (credential_id,organization_id,provider,name,encrypted_payload,metadata,created_by)
+                VALUES (%s,%s,%s,%s,%s,%s::jsonb,%s)""",
+                (credential_id, organization_id, provider, display_name, encrypted,
+                 json.dumps(_safe_metadata(clean)), actor))
+            cursor.execute("""INSERT INTO ops_agent.integration_connections
+                (connection_id,organization_id,provider,display_name,connection_type,status,
+                 endpoint,credential_reference,configuration,created_by)
+                VALUES (%s,%s,%s,%s,%s,'configured',%s,%s,%s::jsonb,%s) RETURNING *""",
+                (connection_id, organization_id, provider, display_name, connection_type,
+                 endpoint, reference, json.dumps(configuration), actor))
+            record = cursor.fetchone()
+            cursor.execute("""INSERT INTO ops_agent.organization_audit
+                (organization_id,actor,action,target,details)
+                VALUES (%s,%s,'connector_credential_created',%s,%s::jsonb)""",
+                (organization_id, actor, credential_id,
+                 json.dumps({"provider": provider, "connection_id": connection_id, "fields": sorted(clean)})))
+        connection.commit()
+    return record
+
+
+def list_credentials(organization_id: str):
+    with database.connect(row_factory=dict_row) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("""SELECT credential_id,provider,name,metadata,created_by,created_at,updated_at
+                FROM ops_agent.connector_credentials WHERE organization_id=%s ORDER BY created_at DESC""",
+                (organization_id,))
+            return cursor.fetchall()
+
+
+def resolve(organization_id: str, credential_id: str) -> dict[str, str]:
+    """Backend-only secret resolution; never expose this through a route."""
+    with database.connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("""SELECT encrypted_payload FROM ops_agent.connector_credentials
+                WHERE organization_id=%s AND credential_id=%s AND status='active'""",
+                (organization_id, credential_id))
+            row = cursor.fetchone()
+    if not row:
+        raise KeyError("Credential not found")
+    return decrypt_payload(organization_id, row[0])
