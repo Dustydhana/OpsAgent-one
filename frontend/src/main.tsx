@@ -35,4 +35,5 @@ import './service-desk-enterprise.css'
 import './service-desk-layout-fix.css'
 import './service-desk-workflow-fix.css'
 import './responsive.css'
+import './routing-ui.css'
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>)

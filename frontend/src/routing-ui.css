@@ -1,0 +1,44 @@
+.connector-readiness.compact {
+  padding: 16px 20px;
+}
+
+.connector-readiness.compact > header {
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.readiness-summary button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid #cfd7e2;
+  border-radius: 7px;
+  background: #fff;
+  color: #344054;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.readiness-summary button:hover {
+  border-color: #4964e8;
+  color: #354fc7;
+  background: #f6f7ff;
+}
+
+.readiness-summary button svg {
+  width: 13px;
+}
+
+.connector-readiness.expanded .readiness-summary button svg {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 760px) {
+  .readiness-summary {
+    width: 100%;
+    white-space: normal;
+  }
+}
