@@ -15,6 +15,7 @@ import alert_metrics
 import auth
 import chat_store
 import chat_operations
+import connector_readiness
 import config
 import database
 import email_metrics
@@ -919,6 +920,11 @@ def integration_catalog(_user=Depends(current_user)):
 @app.get("/api/v1/integrations/connections")
 def integration_connections(_user=Depends(current_user)):
     return integration_store.list_connections(_user["organization_id"])
+
+
+@app.get("/api/v1/integrations/readiness")
+def integration_readiness(_user=Depends(current_user)):
+    return connector_readiness.get_readiness(_user["organization_id"])
 
 
 @app.post("/api/v1/integrations/connections", status_code=201)

@@ -3125,6 +3125,9 @@ function SccmWorkspace() {
 }
 
 function ConnectionsCenter() {
+  type ReadinessCheck = {key:string;label:string;configured:boolean;required:boolean;guidance:string};
+  type ReadinessProvider = {id:string;name:string;status:"ready"|"attention";configured_connections:number;checks:ReadinessCheck[];missing:string[]};
+  type ConnectorReadiness = {summary:{ready:number;attention:number;total:number};providers:ReadinessProvider[];security:string};
   const [settings, setSettings] = useState<Preferences | null>(null);
   const [providers, setProviders] = useState<
     { id: string; label: string; configured: boolean }[]
@@ -3139,6 +3142,8 @@ function ConnectionsCenter() {
   const [enrollmentToken, setEnrollmentToken] = useState("");
   const [copiedConnectorValue, setCopiedConnectorValue] = useState<"url"|"token"|"">("");
   const [savingConnector, setSavingConnector] = useState(false);
+  const [readiness, setReadiness] = useState<ConnectorReadiness | null>(null);
+  const [expandedReadiness, setExpandedReadiness] = useState<string>("aws");
   useEffect(() => {
     let disposed = false;
     const loadConnections = async () => {
@@ -3149,11 +3154,13 @@ function ConnectionsCenter() {
           return response.json() as Promise<{ id: string; label: string; configured: boolean }[]>;
         }),
         api<Array<{provider:string;status:string;display_name:string}>>("/integrations/connections"),
+        api<ConnectorReadiness>("/integrations/readiness"),
       ]);
       if (disposed) return;
       if (results[0].status === "fulfilled") setSettings(results[0].value);
       if (results[1].status === "fulfilled") setProviders(results[1].value);
       if (results[2].status === "fulfilled") setConnectionRecords(results[2].value);
+      if (results[3].status === "fulfilled") setReadiness(results[3].value);
       const failures = results.filter((result) => result.status === "rejected").length;
       setStatus(failures ? `${failures} connection data source${failures > 1 ? "s are" : " is"} unavailable. Retrying automatically…` : "");
     };
@@ -3323,6 +3330,14 @@ function ConnectionsCenter() {
           {connectionRecords.length + (awsConnection ? 1 : 0)} configured
         </span>
       </div>
+      {readiness && <section className="connector-readiness" aria-labelledby="connector-readiness-title">
+        <header><div><span className="eyebrow">SECURE CONFIGURATION PREFLIGHT</span><h2 id="connector-readiness-title">Connector readiness</h2><p>Check deployment and tenant configuration before testing a connection. Secret values are never displayed.</p></div><div className="readiness-summary"><span className="ready"><CheckCircle2/>{readiness.summary.ready} ready</span><span className={readiness.summary.attention ? "attention" : "ready"}><AlertTriangle/>{readiness.summary.attention} need setup</span></div></header>
+        <div className="readiness-grid">{readiness.providers.map((provider)=><article className={provider.status} key={provider.id}>
+          <button type="button" onClick={()=>setExpandedReadiness(expandedReadiness===provider.id?"":provider.id)} aria-expanded={expandedReadiness===provider.id}><span>{provider.status==="ready"?<CheckCircle2/>:<AlertTriangle/>}<b>{provider.name}</b></span><em>{provider.status==="ready"?"Ready":"Needs setup"}</em><ChevronRight/></button>
+          {expandedReadiness===provider.id&&<div className="readiness-checks">{provider.checks.map((check)=><div key={check.key} className={check.configured?"configured":"missing"}>{check.configured?<CheckCircle2/>:<AlertTriangle/>}<span><b>{check.label}{!check.required&&<small> Recommended</small>}</b><p>{check.configured?"Configured":check.guidance}</p></span></div>)}</div>}
+        </article>)}</div>
+        <footer><ShieldCheck/><span>{readiness.security}</span></footer>
+      </section>}
       <section className="connector-quickstart">
         <div className="connector-logo"><Cloud /></div>
         <div><span className="eyebrow">RECOMMENDED CONNECTOR</span><h3>AWS cross-account role</h3><p>Deploy the least-privilege CloudFormation package, configure the role ARN and external ID on FastAPI, then verify access.</p></div>
