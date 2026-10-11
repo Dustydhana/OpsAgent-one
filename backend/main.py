@@ -1,9 +1,11 @@
 """FastAPI control plane over the existing operational Python services."""
 import os
 import threading
+from pathlib import Path
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel, Field
 
@@ -1014,3 +1016,10 @@ def update_settings(request: SettingsRequest, _user=Depends(current_user)):
     values = request.model_dump()
     values["extensions"] = {key: bool(value) for key, value in request.extensions.items() if key in allowed_extensions}
     return settings_store.save(_user["username"], values)
+
+
+# In production the React build is copied into the API image. Mount it last so
+# every /api route keeps precedence while the root serves the OpsAgent UI.
+_frontend_dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+if _frontend_dist.is_dir():
+    app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="frontend")
