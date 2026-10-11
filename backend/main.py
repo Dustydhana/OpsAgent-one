@@ -1093,6 +1093,16 @@ def test_tenant_integration(provider: str, _user=Depends(require_permission(auth
         if not credentials:
             raise ValueError("Save the connector credentials before testing")
         result = connector_testing.test_provider(provider, credentials)
+        if provider == "slack":
+            runtime = health_status.read().get("slack", {})
+            result["listener_status"] = runtime.get("status", "unknown")
+            result["listener_details"] = runtime.get("details", "No Slack worker heartbeat recorded")
+            if runtime.get("status") != "healthy":
+                raise ValueError(
+                    "Slack credentials are valid, but the live listener is not healthy: "
+                    f"{result['listener_details']}. Redeploy/restart Render after saving credentials, "
+                    "enable Socket Mode and subscribe to the app_mention event."
+                )
         credential_store.record_test(_user["organization_id"], provider, True)
         return result
     except ValueError as error:

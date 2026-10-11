@@ -9,14 +9,36 @@ import vmware_operations
 def test_slack(credentials: dict[str, str]) -> dict:
     from slack_sdk import WebClient
     token = credentials.get("bot_token", "")
-    if not token:
-        raise ValueError("Slack bot token is required")
-    response = WebClient(token=token).auth_test()
+    app_token = credentials.get("app_token", "")
+    if not token or not app_token:
+        raise ValueError("Slack bot token and Socket Mode app token are required")
+    client = WebClient(token=token)
+    response = client.auth_test()
+    # auth.test only validates the bot token. Opening a Socket Mode URL also
+    # verifies that the xapp token has connections:write and Socket Mode is on.
+    WebClient(token=app_token).api_call("apps.connections.open")
     channels = [value.strip() for value in credentials.get("channels", "").split(",") if value.strip()]
     approvers = [value.strip() for value in credentials.get("approvers", "").split(",") if value.strip()]
+    available = {}
+    cursor = None
+    while True:
+        page = client.conversations_list(types="public_channel,private_channel", limit=200, cursor=cursor)
+        for item in page.get("channels", []):
+            available[item.get("id")] = item
+            available[f"#{item.get('name')}"] = item
+            available[item.get("name")] = item
+        cursor = page.get("response_metadata", {}).get("next_cursor")
+        if not cursor:
+            break
+    missing = [channel for channel in channels if channel not in available]
+    not_joined = [channel for channel in channels if channel in available and not available[channel].get("is_member")]
+    if missing:
+        raise ValueError(f"Slack channel(s) not visible to the bot: {', '.join(missing)}")
+    if not_joined:
+        raise ValueError(f"Invite @Ops agent to: {', '.join(not_joined)}")
     return {"connected": True, "provider": "slack", "team": response.get("team"),
             "bot_user_id": response.get("user_id"), "monitored_channels": len(channels),
-            "approvers": len(approvers), "socket_mode": bool(credentials.get("app_token")),
+            "approvers": len(approvers), "socket_mode": True, "channel_membership": "verified",
             "incoming_webhook": bool(credentials.get("webhook_url"))}
 
 

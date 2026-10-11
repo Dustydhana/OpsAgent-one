@@ -44,9 +44,11 @@ def catalog():
 def list_connections(organization_id: str):
     with database.connect(row_factory=dict_row) as connection:
         with connection.cursor() as cursor:
-            cursor.execute("""SELECT connection_id, provider, display_name, connection_type, status,
+            cursor.execute("""SELECT * FROM (SELECT DISTINCT ON (provider)
+                connection_id, provider, display_name, connection_type, status,
                 endpoint, credential_reference, configuration, last_tested_at, last_error, created_at, updated_at
-                FROM ops_agent.integration_connections WHERE organization_id=%s ORDER BY created_at DESC""", (organization_id,))
+                FROM ops_agent.integration_connections WHERE organization_id=%s
+                ORDER BY provider, created_at DESC) latest ORDER BY created_at DESC""", (organization_id,))
             return cursor.fetchall()
 
 
