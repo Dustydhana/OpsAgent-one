@@ -11,7 +11,7 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: OPSAGENT_API_SECRET
-        generateValue: true
+        sync: false
       - key: OPSAGENT_FRONTEND_URL
         sync: false
       - key: OPSAGENT_OAUTH_CALLBACK_BASE
