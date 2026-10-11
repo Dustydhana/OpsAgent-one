@@ -726,6 +726,7 @@ def aws_execute(request: AwsOperationRequest, _user=Depends(require_permission(a
         instance_type=request.instance_type, volume_id=request.volume_id,
         size_gib=request.size_gib, network_interface_id=request.network_interface_id,
         snapshot_id=request.snapshot_id,
+        organization_id=_user["organization_id"],
         client=aws.client_for_credentials(credentials, request.region),
     )
     if not result.get("success"):
@@ -766,6 +767,7 @@ def aws_provision_execute(request: AwsProvisionRequest, _user=Depends(require_pe
     result = aws.provision_instance(request.model_dump(exclude={"confirmation"}), approved=True,
         actor=f"enterprise-api:{_user['username']}", requester=_user["username"],
         approver=_user["username"], source="enterprise_api", region=request.region,
+        organization_id=_user["organization_id"],
         client=aws.client_for_credentials(credentials, request.region))
     if not result.get("success"):
         raise HTTPException(400, result.get("error") or "AWS provisioning failed")

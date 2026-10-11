@@ -130,7 +130,10 @@ def _aws_request_id(response):
 
 
 def _audit(action, target, approved, result, actor="unknown", *, request_id=None,
-           source="unknown", requester=None, approver=None, started_at=None):
+           source="unknown", requester=None, approver=None, started_at=None, organization_id=None):
+    organization_id = str(organization_id or config.DEFAULT_ORGANIZATION_ID or "").strip()
+    if not organization_id:
+        raise ValueError("organization_id is required for AWS audit")
     completed_at = datetime.now(timezone.utc)
     started_at = started_at or completed_at
     duration_ms = max(0, int((completed_at - started_at).total_seconds() * 1000))
@@ -138,12 +141,12 @@ def _audit(action, target, approved, result, actor="unknown", *, request_id=None
     with database.connect() as connection:
         with connection.cursor() as cursor:
             cursor.execute("""INSERT INTO ops_agent.cloud_operation_audit
-                (provider,actor,action,target,approved,dry_run,success,instance_id,
+                (organization_id,provider,actor,action,target,approved,dry_run,success,instance_id,
                  volume_id,snapshot_id,message,error_message,request_id,source,requester,
                  approver,started_at,completed_at,duration_ms,before_status,after_status,
                  aws_request_id)
-                VALUES ('aws',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                (actor, action, target, bool(approved), config.AWS_DRY_RUN,
+                VALUES (%s,'aws',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (organization_id, actor, action, target, bool(approved), config.AWS_DRY_RUN,
                  result.get("success"), result.get("instance_id"), result.get("volume_id"),
                  result.get("snapshot_id"), result.get("message"), _safe_error(result.get("error")),
                  request_id, source or "unknown", requester, approver, started_at, completed_at,
@@ -168,7 +171,7 @@ def _record(action, target, approved, result, actor, context, started_at):
         details += f"; volume={result['volume_id']}"
     if result.get("error"):
         details += f"; error={_safe_error(result['error'], 300)}"
-    ops_log.write("aws", level, event, details, context["request_id"])
+    ops_log.write("aws", level, event, details, context["request_id"], context.get("organization_id"))
 
 
 def audit_summary(hours=24, organization_id=None):
@@ -404,11 +407,12 @@ def provisioning_options(region=None, client=None):
     }
 
 
-def provision_instance(spec, approved=False, actor="unknown", requester=None, approver=None, source="enterprise_api", region=None, client=None):
+def provision_instance(spec, approved=False, actor="unknown", requester=None, approver=None, source="enterprise_api", region=None, client=None, organization_id=None):
     """Provision one tagged EC2 instance after deterministic validation and approval."""
     _guard("provision_instance", approved)
     started_at = datetime.now(timezone.utc)
-    context = {"request_id": str(uuid4()), "source": source, "requester": requester, "approver": approver}
+    context = {"request_id": str(uuid4()), "source": source, "requester": requester, "approver": approver,
+               "organization_id": organization_id}
     target = str(spec.get("name") or "new-instance")
     try:
         preview = preview_provision(spec, region, client)
@@ -491,7 +495,7 @@ def wait_for_instance_state(identifier, expected_state, region=None, timeout=120
 def execute(action, identifier, *, approved=False, actor="unknown", region=None,
             instance_type=None, volume_id=None, size_gib=None,
             network_interface_id=None, snapshot_id=None, description=None, client=None,
-            request_id=None, source=None, requester=None, approver=None):
+            request_id=None, source=None, requester=None, approver=None, organization_id=None):
     """Execute one approved, allowlisted EC2 action and return an auditable result."""
     target = str(identifier or "")
     started_at = datetime.now(timezone.utc)
@@ -502,11 +506,12 @@ def execute(action, identifier, *, approved=False, actor="unknown", region=None,
         "source": inferred_source,
         "requester": str(requester or actor or "unknown"),
         "approver": str(approver or actor or "") if approved else None,
+        "organization_id": organization_id,
     }
     ops_log.write(
         "aws", "INFO", "operation_started",
         f"action={action}; target={target}; source={inferred_source}; requester={context['requester']}",
-        request_id,
+        request_id, organization_id,
     )
     try:
         _guard(action, approved)

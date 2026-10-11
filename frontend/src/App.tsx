@@ -2615,6 +2615,7 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
       loadAudit();
     } catch (e) {
       setResult((e as Error).message);
+      await loadAudit().catch(() => undefined);
     } finally {
       setBusy(false);
     }
