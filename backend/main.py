@@ -733,6 +733,11 @@ def aws_instance_status(instance_id: str, region: str | None = None, _user=Depen
 def test_aws_connection(_user=Depends(current_user)):
     try:
         credentials = credential_store.resolve_provider(_user["organization_id"], "aws")
+        if not credentials:
+            raise ValueError(
+                "No active AWS credentials are saved for the current organization. "
+                "Reconnect AWS from Connections."
+            )
         result = aws.connection_status(credentials)
         credential_store.record_test(_user["organization_id"], "aws", True)
         return result

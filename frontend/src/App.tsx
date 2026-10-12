@@ -3224,6 +3224,7 @@ function ConnectionsCenter() {
   const [copiedConnectorValue, setCopiedConnectorValue] = useState<"url"|"token"|"">("");
   const [savingConnector, setSavingConnector] = useState(false);
   const [showAwsPolicy, setShowAwsPolicy] = useState(false);
+  const awsInitialCheckStarted = useRef(false);
   const [connectionConfirmation, setConnectionConfirmation] = useState<{provider:string;action:"disconnect"|"delete"}|null>(null);
   const [awsPolicy, setAwsPolicy] = useState({region:"us-east-2",execution_mode:"validation",allowed_actions:"start_instance,stop_instance,reboot_instance",live_confirmation:""});
   const awsOperationOptions = [
@@ -3247,6 +3248,24 @@ function ConnectionsCenter() {
       if (results[2].status === "fulfilled") setAwsConfiguration(results[2].value);
       const failures = results.slice(0,2).filter((result) => result.status === "rejected").length;
       setStatus(failures ? `${failures} connection data source${failures > 1 ? "s are" : " is"} unavailable. Retrying automatically…` : "");
+      if (results[1].status === "fulfilled" &&
+          results[1].value.some((record)=>record.provider==="aws"&&record.status!=="disconnected") &&
+          !awsInitialCheckStarted.current) {
+        awsInitialCheckStarted.current = true;
+        try {
+          const verified = await api<Record<string,unknown>>("/connections/aws/test", {method:"POST"});
+          if (!disposed) {
+            setAwsConnection(verified);
+            setConnectionRecords((current)=>current.map((record)=>record.provider==="aws"?{...record,status:"connected",last_error:undefined}:record));
+          }
+        } catch (error) {
+          if (!disposed) {
+            setAwsConnection(null);
+            setConnectionRecords((current)=>current.map((record)=>record.provider==="aws"?{...record,status:"attention",last_error:(error as Error).message}:record));
+            setStatus(`AWS needs attention: ${(error as Error).message}`);
+          }
+        }
+      }
     };
     loadConnections();
     const retry = window.setInterval(loadConnections, 15000);
@@ -3414,7 +3433,12 @@ function ConnectionsCenter() {
     setSavingConnector(true);setStatus("");
     try{
       if(selectedConnector.key==="aws"&&connectionRecords.some((record)=>record.provider==="aws"&&record.status!=="disconnected")){
-        await api("/connections/aws/configuration",{method:"PUT",body:JSON.stringify({region:connectorSecrets.region})});
+        await api("/connections/aws/configuration",{method:"PUT",body:JSON.stringify({
+          region:connectorSecrets.region,
+          execution_mode:awsConfiguration?.execution_mode||"validation",
+          allowed_actions:awsConfiguration?.allowed_actions||["start_instance","stop_instance","reboot_instance"],
+          live_confirmation:"",
+        })});
         setStatus("AWS region updated. Verifying access and synchronizing inventory…");
         const verified=await api<Record<string,unknown>>("/connections/aws/test",{method:"POST"});
         setAwsConnection(verified);
@@ -3515,7 +3539,7 @@ function ConnectionsCenter() {
   const featuredProviderRecords = ["slack","gmail"].map((provider)=>latestConnectionByProvider.get(provider)||{provider,status:"disconnected",display_name:provider==="slack"?"Slack":"Gmail / Outlook"});
   const otherConnectedRecords = [...latestConnectionByProvider.values()].filter((record)=>!["aws","slack","gmail"].includes(record.provider)&&record.status!=="disconnected");
   const platformIds = [...new Set(catalog.flatMap(([,items])=>items.map(([key])=>key)).filter((key)=>configurableConnectors.has(key)))];
-  const connectedCount = platformIds.filter((provider)=>latestConnectionByProvider.get(provider)?.status!==undefined&&latestConnectionByProvider.get(provider)?.status!=="disconnected").length;
+  const connectedCount = platformIds.filter((provider)=>latestConnectionByProvider.get(provider)?.status==="connected").length;
   const disconnectedCount = platformIds.length-connectedCount;
   return (
     <section className="connections-center">
@@ -3525,7 +3549,7 @@ function ConnectionsCenter() {
       <section className="connector-quickstart">
         <div className="connector-logo aws"><FaAws /></div>
         <div><span className="eyebrow">CLOUD PLATFORM</span><h3>Amazon Web Services</h3><p>Configure encrypted IAM credentials, inventory region and guarded execution policy.</p></div>
-        {connectionRecords.some((record)=>record.provider==="aws"&&record.status!=="disconnected") ? <div className="connector-result aws-connector-result"><div className="aws-connection-state"><span><CheckCircle2 /> {awsConnection?"Connected":"Configured"}</span><div className="aws-connection-facts"><b>{awsConfiguration?.region||"Region loading…"}</b><b className={awsConfiguration?.execution_mode==="live"?"live":"validation"}>{awsConfiguration?.execution_mode==="live"?"Live operations":"Validation only"}</b><strong>{awsConfiguration?.allowed_actions?.length||0} of {awsOperationOptions.length} operations enabled</strong></div></div><div className="aws-policy-summary">{awsOperationOptions.map(([key,label,risk])=>{const enabled=Boolean(awsConfiguration?.allowed_actions?.includes(key));return <span className={`${enabled?"enabled":"disabled"} ${risk}`} key={key}>{enabled?<CheckCircle2/>:<LockKeyhole/>}{label}<small>{enabled?"Enabled":"Disabled"}</small></span>})}</div><div className="connector-result-actions"><button type="button" className="manage" onClick={()=>openConnector("aws","Amazon Web Services","Change region and guarded execution policy without re-entering the protected access key.")}>Manage connection</button><button type="button" onClick={testAwsConnection} disabled={testingAws}>{testingAws?"Testing…":"Verify connection"}</button><button type="button" onClick={()=>setConnectionConfirmation({provider:"aws",action:"disconnect"})} disabled={savingConnector}>Disconnect</button><button type="button" className="danger" onClick={()=>setConnectionConfirmation({provider:"aws",action:"delete"})} disabled={savingConnector}>Delete</button></div></div> : <button onClick={beginAwsConnection}>{connectionRecords.some((record)=>record.provider==="aws")?"Reconnect AWS":"Connect AWS"}</button>}
+        {connectionRecords.some((record)=>record.provider==="aws"&&record.status!=="disconnected") ? <div className="connector-result aws-connector-result"><div className="aws-connection-state"><span className={connectionRecords.find((record)=>record.provider==="aws")?.status==="attention"?"attention":""}>{connectionRecords.find((record)=>record.provider==="aws")?.status==="attention"?<AlertTriangle/>:<CheckCircle2 />} {awsConnection?"Connected":connectionRecords.find((record)=>record.provider==="aws")?.status==="attention"?"Attention required":"Verifying…"}</span><div className="aws-connection-facts"><b>{awsConfiguration?.region||"Region loading…"}</b><b className={awsConfiguration?.execution_mode==="live"?"live":"validation"}>{awsConfiguration?.execution_mode==="live"?"Live operations":"Validation only"}</b><strong>{awsConfiguration?.allowed_actions?.length||0} of {awsOperationOptions.length} operations enabled</strong></div></div>{connectionRecords.find((record)=>record.provider==="aws")?.last_error&&<div className="aws-connection-error"><AlertTriangle/><span>{connectionRecords.find((record)=>record.provider==="aws")?.last_error}</span></div>}<div className="aws-policy-summary">{awsOperationOptions.map(([key,label,risk])=>{const enabled=Boolean(awsConfiguration?.allowed_actions?.includes(key));return <span className={`${enabled?"enabled":"disabled"} ${risk}`} key={key}>{enabled?<CheckCircle2/>:<LockKeyhole/>}{label}<small>{enabled?"Enabled":"Disabled"}</small></span>})}</div><div className="connector-result-actions"><button type="button" className="manage" onClick={()=>openConnector("aws","Amazon Web Services","Change region and guarded execution policy without re-entering the protected access key.")}>Manage connection</button><button type="button" onClick={testAwsConnection} disabled={testingAws}>{testingAws?"Testing…":"Verify connection"}</button><button type="button" onClick={()=>setConnectionConfirmation({provider:"aws",action:"disconnect"})} disabled={savingConnector}>Disconnect</button><button type="button" className="danger" onClick={()=>setConnectionConfirmation({provider:"aws",action:"delete"})} disabled={savingConnector}>Delete</button></div></div> : <button onClick={beginAwsConnection}>{connectionRecords.some((record)=>record.provider==="aws")?"Reconnect AWS":"Connect AWS"}</button>}
       </section>
       {[...featuredProviderRecords,...otherConnectedRecords].map((record)=>{const catalogItem=catalog.flatMap(([,items])=>items).find(([key])=>key===record.provider);const name=catalogItem?.[1]||record.display_name;const description=catalogItem?.[2]||"Tenant-scoped enterprise connection";const active=record.status!=="disconnected";const facts=record.provider==="slack"?[["Transport","Socket Mode"],["Workflow","Requests & approvals"],["Security","Encrypted vault"]]:record.provider==="gmail"?[["Transport","IMAP + SMTP"],["Workflow","Email approvals"],["Security","Encrypted vault"]]:[["Connection","Tenant scoped"],["Control","RBAC governed"],["Evidence","Audited"]];return <article className={`connector-quickstart connected-service connector-${record.provider} ${active?"":"available"}`} key={record.provider}><div className={`connector-logo ${record.provider}`}>{connectorIcon(record.provider)}</div><div className="connected-service-identity"><span className="eyebrow">{active?"CONNECTED PLATFORM":"COMMUNICATION PLATFORM"}</span><h3>{name}</h3><p>{description}</p></div>{active?<><div className="connected-service-facts">{facts.map(([label,value])=><span key={label}><small>{label}</small><b>{value}</b></span>)}</div><div className="connector-result"><span><CheckCircle2/>{record.status==="connected"?"Connected":"Configured"}</span>{record.last_tested_at&&<small>Verified {new Date(record.last_tested_at).toLocaleString()}</small>}<div className="connector-result-actions"><button className="manage" onClick={()=>openConnector(record.provider,name,description)}>Manage</button><button onClick={()=>testPlatform(record.provider)}>Verify</button><button onClick={()=>setConnectionConfirmation({provider:record.provider,action:"disconnect"})}>Disconnect</button><button className="danger" onClick={()=>setConnectionConfirmation({provider:record.provider,action:"delete"})}>Delete</button></div></div></>:<button className="connector-setup-action" onClick={()=>openConnector(record.provider,name,description)}>Connect {name}</button>}</article>})}
       </section>

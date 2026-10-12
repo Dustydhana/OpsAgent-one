@@ -223,3 +223,137 @@ body:has(.public-auth-page) {
     padding: 6px 14px max(8px, env(safe-area-inset-bottom));
   }
 }
+
+/* Fluid connection layouts respond to available workspace width, not only viewport width. */
+.connections-center {
+  container-type: inline-size;
+  width: 100%;
+  max-width: none;
+}
+
+.connections-center .connector-quickstart {
+  grid-template-columns: 48px minmax(0, 1fr) max-content;
+  width: 100%;
+}
+
+.connections-center .connector-quickstart > *,
+.connections-center .connection-grid article > * {
+  min-width: 0;
+}
+
+.connections-center .connector-quickstart > button,
+.connections-center .connector-setup-action {
+  width: auto;
+  min-width: 110px;
+  justify-self: end;
+}
+
+.connections-center .connector-result {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.connections-center .aws-connection-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #f1b7b7;
+  border-radius: 7px;
+  background: #fff4f4;
+  color: #9e2929;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.connections-center .aws-connection-error svg {
+  width: 15px;
+  flex: 0 0 15px;
+}
+
+.connections-center .aws-connection-state > span.attention {
+  color: #a13a32;
+}
+
+@container (max-width: 1050px) {
+  .connections-center .connector-quickstart,
+  .connections-center .connected-service,
+  .connections-center .connector-quickstart:has(.aws-connector-result) {
+    grid-template-columns: 48px minmax(0, 1fr) !important;
+  }
+
+  .connections-center .connector-quickstart > button,
+  .connections-center .connector-result,
+  .connections-center .connected-service-facts,
+  .connections-center .aws-connector-result {
+    grid-column: 2;
+    width: 100%;
+    justify-self: stretch;
+    align-items: stretch;
+  }
+
+  .connections-center .connector-quickstart > button {
+    margin-top: 6px;
+  }
+
+  .connections-center .connected-service-facts {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  }
+
+  .connections-center .aws-policy-summary {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  }
+}
+
+@container (max-width: 620px) {
+  .connections-center .connections-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .connections-center .connections-summary > div:last-child {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .connections-center .connector-quickstart,
+  .connections-center .connected-service,
+  .connections-center .connector-quickstart:has(.aws-connector-result),
+  .connections-center .connection-grid article {
+    grid-template-columns: 42px minmax(0, 1fr) !important;
+    padding: 16px !important;
+  }
+
+  .connections-center .connector-quickstart > button,
+  .connections-center .connector-result,
+  .connections-center .connected-service-facts,
+  .connections-center .aws-connector-result,
+  .connections-center .connector-card-actions,
+  .connections-center .connection-grid article > button {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .connections-center .connector-result-actions,
+  .connections-center .connector-card-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .connections-center .connector-result-actions button,
+  .connections-center .connector-card-actions button {
+    width: 100%;
+  }
+
+  .connections-center .aws-connection-state {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .connections-center .aws-connection-facts {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
