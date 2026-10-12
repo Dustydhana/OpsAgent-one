@@ -89,7 +89,7 @@
 .aws-storage-tools span { margin-right: auto; color: #758397; font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
 .aws-storage-tools button { padding: 7px 10px; color: #aebaca; background: transparent; border: 1px solid #344658; border-radius: 7px; font-size: 10px; cursor: pointer; }
 
-.aws-operation-review { margin-top: 18px; overflow: hidden; background: #0c121a; border: 1px solid #4868d4; border-radius: 11px; box-shadow: 0 0 0 3px #4868d412; }
+.aws-operation-review { position: fixed; right: 24px; bottom: 20px; z-index: 80; width: min(720px, calc(100vw - 310px)); max-height: calc(100vh - 100px); overflow-y: auto; background: #0c121a; border: 1px solid #4868d4; border-radius: 12px; box-shadow: 0 22px 70px #07101d73,0 0 0 3px #4868d412; outline: none; }
 .aws-operation-review > header { display: flex; justify-content: space-between; gap: 20px; padding: 15px 18px; background: #111b28; border-bottom: 1px solid #29394a; }
 .aws-operation-review > header span { color: #7e8da1; font-size: 9px; font-weight: 700; letter-spacing: .1em; }
 .aws-operation-review > header h3 { margin: 4px 0; font-size: 16px; }
@@ -99,6 +99,36 @@
 .aws-operation-review > header svg { width: 16px; }
 .aws-operation-review .operation-form { margin: 0; padding: 18px; }
 .aws-operation-review .form-grid:empty { display: none; }
+.aws-execution-console { overflow: hidden; margin-top: 4px; background: #071019; border: 1px solid #273b50; border-radius: 9px; }
+.aws-execution-console > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 15px; background: #0d1924; border-bottom: 1px solid #26394b; }
+.aws-execution-console > header > div { display: grid; gap: 3px; }
+.aws-execution-console > header strong { color: #edf5ff; font-size: 13px; }
+.aws-execution-console > header small { color: #7890a7; font: 10px Consolas,monospace; }
+.aws-execution-console > header > b { color: #61d8a4; font: 18px Consolas,monospace; }
+.console-live { display: flex; align-items: center; gap: 6px; color: #54d89e; font-size: 8px; font-weight: 800; letter-spacing: .12em; }
+.console-live i { width: 7px; height: 7px; background: #46d89a; border-radius: 50%; box-shadow: 0 0 0 4px #46d89a1f; animation: aws-live-pulse 1.4s infinite; }
+.aws-progress-track { height: 3px; background: #1a2a39; }
+.aws-progress-track i { display: block; height: 100%; background: linear-gradient(90deg,#3974f6,#48d79a); transition: width .35s ease; }
+.aws-execution-body { display: grid; grid-template-columns: minmax(220px,.8fr) minmax(300px,1.2fr); min-height: 240px; }
+.aws-stage-list { padding: 12px; border-right: 1px solid #26394b; }
+.aws-stage-list > div { display: grid; grid-template-columns: 24px 1fr auto; gap: 9px; align-items: center; min-height: 42px; color: #607489; }
+.aws-stage-list > div > i { width: 22px; height: 22px; display: grid; place-items: center; background: #111e2a; border: 1px solid #30465a; border-radius: 50%; font-size: 9px; font-style: normal; font-weight: 800; }
+.aws-stage-list > div > i svg { width: 12px; }
+.aws-stage-list > div > span { display: grid; gap: 2px; }
+.aws-stage-list > div b { font-size: 10px; }
+.aws-stage-list > div small { color: #5d7185; font-size: 8px; }
+.aws-stage-list > div.active { color: #fff; }
+.aws-stage-list > div.active > i { color: #fff; background: #3167e3; border-color: #4d7def; box-shadow: 0 0 0 4px #3167e31f; }
+.aws-stage-list > div.complete { color: #51d59c; }
+.aws-stage-list > div.complete > i { color: #07160f; background: #43cf94; border-color: #43cf94; }
+.aws-stage-list em { padding: 3px 5px; color: #83a8ff; background: #14264b; border-radius: 8px; font-size: 7px; font-style: normal; }
+.aws-command-log { min-width: 0; margin: 0; padding: 16px; overflow: auto; color: #a9c2d8; background: #050b11; white-space: pre-wrap; word-break: break-word; font: 9px/1.8 Consolas,"Courier New",monospace; }
+.aws-command-log span { color: #526b80; }
+.aws-command-log b { color: #53d99f; animation: aws-cursor 1s steps(1) infinite; }
+.aws-execution-console > footer { display: flex; align-items: center; gap: 8px; padding: 9px 13px; color: #7d91a5; background: #0b1620; border-top: 1px solid #26394b; font-size: 9px; }
+.aws-execution-console > footer svg { width: 14px; color: #4ed49a; }
+@keyframes aws-live-pulse { 50% { opacity: .45; } }
+@keyframes aws-cursor { 50% { opacity: 0; } }
 
 :root[data-theme="light"] .aws-state-summary span { color: #586779; background: #f7f9fc; border-color: #d8e0e9; }
 :root[data-theme="light"] .aws-instance-console { background: #fff; border-color: #cfd8e3; }
@@ -146,6 +176,9 @@
   .aws-toolbar-actions .toolbar-divider { width: 100%; height: 1px; flex-basis: 100%; }
   .aws-compliance-heading { grid-template-columns: 38px 1fr; }
   .aws-compliance-heading > div:last-child { grid-column: 2; align-items: flex-start; }
+  .aws-operation-review { right: 10px; bottom: 10px; width: calc(100vw - 20px); max-height: calc(100dvh - 20px); }
+  .aws-execution-body { grid-template-columns: 1fr; }
+  .aws-stage-list { border-right: 0; border-bottom: 1px solid #26394b; }
 }
 
 @media (max-width: 540px) {

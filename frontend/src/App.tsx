@@ -2548,7 +2548,11 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
   const [busy, setBusy] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [progressStage, setProgressStage] = useState(0);
+  const operationPanel = useRef<HTMLElement | null>(null);
   useEffect(() => { setInventory(servers); }, [servers]);
+  useEffect(() => {
+    if (action) window.requestAnimationFrame(()=>operationPanel.current?.focus());
+  }, [action]);
   async function refreshInventory() {
     setSyncingInventory(true);
     setInventoryMessage("");
@@ -2668,11 +2672,11 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
     setAction(""); setConfirmation("");
   };
   const auditRows = (audit?.events || []).map((event)=>({
-    time:event.time || event.created_at || "—", action:String(event.action || "—").replaceAll("_"," "),
-    target:event.target || event.instance_id || event.volume_id || event.snapshot_id || "—",
-    status:event.status || "—", requester:event.requester || "—", approver:event.approver || "—",
-    state_change:`${String(event.before || "—")} → ${String(event.after || "—")}`,
-    request_id:event.request_id || event.aws_request_id || "—",
+    time:event["Time"] || event.time || event.created_at || "—", action:String(event["Action"] || event.action || "—").replaceAll("_"," "),
+    target:event["Target"] || event.target || event["Instance ID"] || event.instance_id || event["Volume ID"] || event.volume_id || event["Snapshot ID"] || event.snapshot_id || "—",
+    status:event["Status"] || event.status || "—", requester:event["Requester"] || event.requester || "—", approver:event["Approver"] || event.approver || "—",
+    state_change:`${String(event["Before"] || event.before || "—")} → ${String(event["After"] || event.after || "—")}`,
+    request_id:event["Request ID"] || event.request_id || event["AWS Request ID"] || event.aws_request_id || "—",
   }));
   return (
     <>
@@ -2692,7 +2696,7 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
             <div className="aws-instance-filters"><span>Instance state</span>{(["all","running","stopped"] as const).map((filter)=><button className={instanceFilter===filter?"active":""} onClick={()=>setInstanceFilter(filter)} key={filter}>{filter==="all"?`All (${inventory.length})`:filter==="running"?`Running (${runningCount})`:`Stopped (${stoppedCount})`}</button>)}</div>
             <div className="aws-instance-table-wrap"><table className="aws-instance-table"><thead><tr><th><input type="checkbox" checked={visibleInstances.length>0&&visibleInstances.every((server)=>selectedTargets.includes(server.aws_instance_id))} onChange={(event)=>{const ids=visibleInstances.map((server)=>server.aws_instance_id);setSelectedTargets(event.target.checked?Array.from(new Set([...selectedTargets,...ids])):selectedTargets.filter((id)=>!ids.includes(id)));setTarget("");setAction("");setConfirmation("");}} aria-label="Select all visible instances"/></th><th>Name</th><th>Instance ID</th><th>Instance state</th><th>Instance type</th><th>Status check</th><th>Availability Zone</th><th>Public IPv4 DNS</th><th>Public IPv4</th><th>Elastic IP</th><th>Private IPv4</th><th>Monitoring</th><th>Environment</th></tr></thead><tbody>{visibleInstances.map((server)=>{const state=String(server.status||"unknown").toLowerCase();return <tr className={selectedTargets.includes(server.aws_instance_id)?"selected":""} key={server.aws_instance_id} onClick={()=>selectInstance(server.aws_instance_id,!selectedTargets.includes(server.aws_instance_id))}><td><input type="checkbox" checked={selectedTargets.includes(server.aws_instance_id)} onChange={(event)=>selectInstance(server.aws_instance_id,event.target.checked)} onClick={(event)=>event.stopPropagation()} aria-label={`Select ${server.server_name}`}/></td><td><span className="aws-table-name"><i className={optionOs(server).toLowerCase()}>{optionOs(server).toLowerCase()==="windows"?<FaWindows/>:<SiLinux/>}</i><b>{server.server_name||"Unnamed VM"}</b></span></td><td><code>{server.aws_instance_id}</code></td><td><span className={`vm-power-state ${state}`}><i/>{state}</span></td><td>{server.instance_type||"—"}</td><td>—</td><td>{server.availability_zone||"—"}</td><td title={server.public_dns_name||""}>{server.public_dns_name||"—"}</td><td>{server.public_ip_address||"—"}</td><td>—</td><td>{server.private_ip_address||server.ip_address||"—"}</td><td>{server.monitoring_service||"disabled"}</td><td>{server.environment||"—"}</td></tr>})}</tbody></table></div>
           </div>:<div className="aws-vm-empty"><Server/><h3>No EC2 virtual machines found</h3><p>Refresh inventory or verify the connected AWS account and region.</p></div>}
-          {action && <section className="aws-operation-review">
+          {action && <section className="aws-operation-review" ref={operationPanel} tabIndex={-1}>
             <header><div><span>SELECTED OPERATION</span><h3>{actionLabel[action] || action.replaceAll("_"," ")}</h3><p>{instanceActions.includes(action)?`${selected?.server_name || "Selected VM"} · ${target}`:"Enter the AWS resource identifier below."}</p></div><button onClick={()=>{setAction("");setConfirmation("");}} aria-label="Close operation"><X/></button></header>
           <form className="operation-form" onSubmit={execute}>
             <div className="form-grid">
@@ -2750,9 +2754,9 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
                 ? "Executing approved operation…"
                 : "Review complete — execute operation"}
             </button>
-            {busy && <section className="ssm-live-progress" aria-live="polite"><header><div><strong>AWS operation in progress</strong><span>Elapsed {elapsedSeconds}s · Keep this page open</span></div><b><RefreshCw /> Live</b></header><div className="ssm-progress-steps">{[
-              "Request approved", "AWS request accepted", "Target state changing", "Polling live EC2 state", "Final state verified",
-            ].map((label, index) => <div className={index <= progressStage ? "active" : "pending"} key={label}><i>{index < progressStage ? <CheckCircle2 /> : index + 1}</i><span>{label}</span>{index === progressStage && <em>In progress</em>}</div>)}</div></section>}
+            {busy && <section className="aws-execution-console" aria-live="polite"><header><div><span className="console-live"><i/>LIVE EXECUTION</span><strong>{actionLabel[action] || action.replaceAll("_"," ")}</strong><small>{identifier} · elapsed {elapsedSeconds}s</small></div><b>{Math.min(100,(progressStage+1)*20)}%</b></header><div className="aws-progress-track"><i style={{width:`${Math.min(100,(progressStage+1)*20)}%`}}/></div><div className="aws-execution-body"><div className="aws-stage-list">{[
+              ["Approval validated","Identity, RBAC and confirmation checked"], ["Request submitted","AWS API accepted the command"], ["State transition","Resource is changing state"], ["Live verification","Polling EC2 DescribeInstances"], ["Completed","Desired state verified"],
+            ].map(([label,detail],index)=><div className={index<progressStage?"complete":index===progressStage?"active":"pending"} key={label}><i>{index<progressStage?<CheckCircle2/>:index+1}</i><span><b>{label}</b><small>{detail}</small></span>{index===progressStage&&<em>Running</em>}</div>)}</div><pre className="aws-command-log"><code><span>[{String(Math.min(elapsedSeconds,99)).padStart(2,"0")}:00]</span> opsagent.guard.validate --target {identifier}{"\n"}<span>[{String(Math.min(elapsedSeconds,99)).padStart(2,"0")}:01]</span> aws.ec2.{action} --request approved{progressStage>=1?`\n[${String(Math.min(elapsedSeconds,99)).padStart(2,"0")}:02] AWS request accepted; tracking resource state`:""}{progressStage>=2?`\n[${String(Math.min(elapsedSeconds,99)).padStart(2,"0")}:03] Transition detected for ${identifier}`:""}{progressStage>=3?`\n[${String(Math.min(elapsedSeconds,99)).padStart(2,"0")}:04] Polling DescribeInstances for final state…`:""}{progressStage>=4?`\n[${String(Math.min(elapsedSeconds,99)).padStart(2,"0")}:05] VERIFIED: requested state reached`:""}{"\n"}<b>▌</b></code></pre></div><footer><ShieldCheck/><span>Do not close this page. OpsAgent is verifying the final AWS state before reporting success.</span></footer></section>}
             {result && <p className="notice">{result}</p>}
           </form>
           </section>}
