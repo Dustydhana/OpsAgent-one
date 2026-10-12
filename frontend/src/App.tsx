@@ -645,6 +645,25 @@ function Login({ onLogin }: { onLogin: (user: User) => void }) {
   );
 }
 
+const STANDARD_BANNER_PAGES = new Set(["OpsAgent chat","Connections","Server inventory","Decommission inventory","Hardware inventory","Azure operations","VMware operations","Windows operations","Linux operations","SCCM operations","Account & access","Settings","Documentation","Agent health","Live logs"]);
+const STANDARD_BANNER_COPY: Record<string,string> = {
+  "OpsAgent chat":"Ask questions, investigate infrastructure and prepare governed operations.",
+  "Connections":"Connect and manage the platforms that power your operations.",
+  "Server inventory":"Explore every synchronized cloud, virtual and physical asset.",
+  "Decommission inventory":"Review retired and powered-off assets through a controlled lifecycle.",
+  "Hardware inventory":"Explore chassis, blades and physical infrastructure across vendors.",
+  "Azure operations":"Discover and operate registered Microsoft Azure resources.",
+  "VMware operations":"Discover and operate registered VMware infrastructure.",
+  "Windows operations":"Request and approve governed Windows administration workflows.",
+  "Linux operations":"Request and approve governed Linux administration workflows.",
+  "SCCM operations":"Manage endpoint inventory, patching and compliance from one workspace.",
+  "Account & access":"Manage identity, organization access and authentication controls.",
+  "Settings":"Configure workspace appearance, AI models and platform behavior.",
+  "Documentation":"Find architecture, integration and operations guidance.",
+  "Agent health":"Review agent services, readiness and connector health.",
+  "Live logs":"Inspect live operational events and execution evidence.",
+};
+
 function App() {
   // The enterprise workspace is light by default. Set it before the first
   // authenticated render so the asynchronous preference request cannot cause
@@ -800,7 +819,7 @@ function App() {
           </button>
         </div>
       </aside>
-      <main className="workspace">
+      <main className={`workspace ${STANDARD_BANNER_PAGES.has(active)?"standardized-workspace":""}`}>
         <div className="enterprise-bar">
           <div className="breadcrumb">
             <span>OpsAgent One</span>
@@ -822,6 +841,7 @@ function App() {
           </div>
         </div>
         {dataConnectionIssue && <div className="data-connection-banner" role="status"><AlertTriangle/><span>{dataConnectionIssue}</span><button onClick={() => window.location.reload()}>Retry now</button></div>}
+        {STANDARD_BANNER_PAGES.has(active) && <header className="standard-workspace-banner"><div><span>OPSAGENT ONE</span><h1>{active}</h1><p>{STANDARD_BANNER_COPY[active]}</p></div><div className="standard-banner-state"><i/>Workspace ready</div></header>}
         <Workspace
           active={active}
           summary={summary}
