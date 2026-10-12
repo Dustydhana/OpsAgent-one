@@ -2541,12 +2541,15 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
   const [instanceType, setInstanceType] = useState("t3.small");
   const [volume, setVolume] = useState("");
   const [size, setSize] = useState(40);
+  const [audit, setAudit] = useState<{events: Record<string, unknown>[]} | null>(null);
   const [result, setResult] = useState("");
   const [busy, setBusy] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [progressStage, setProgressStage] = useState(0);
   const operationPanel = useRef<HTMLElement | null>(null);
   useEffect(() => { setInventory(servers); }, [servers]);
+  const loadAudit = () => api<{events: Record<string, unknown>[]}>("/operations/aws/audit").then(setAudit);
+  useEffect(() => { loadAudit().catch(()=>undefined); }, []);
   useEffect(() => {
     if (action) window.requestAnimationFrame(()=>operationPanel.current?.focus());
   }, [action]);
@@ -2627,6 +2630,7 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
       await api("/connections/aws/sync", { method: "POST" });
       const updatedRecords = await api<Machine[]>("/inventory/servers");
       setInventory(updatedRecords.filter((item) => item.vm_type === "aws" && item.enabled !== false && item.status !== "terminated"));
+      await loadAudit().catch(()=>undefined);
     } catch (e) {
       setResult((e as Error).message);
     } finally {
@@ -2659,6 +2663,13 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
     if (checked) setTarget(instanceId); else if (target===instanceId) setTarget("");
     setAction(""); setConfirmation("");
   };
+  const auditRows = (audit?.events || []).map((event)=>({
+    time:event["Time"] || "—", action:String(event["Action"] || "—").replaceAll("_"," "),
+    target:event["Target"] || event["Instance ID"] || event["Volume ID"] || event["Snapshot ID"] || "—",
+    status:event["Status"] || "—", requester:event["Requester"] || "—", approver:event["Approver"] || "—",
+    state_change:`${String(event["Before"] || "—")} → ${String(event["After"] || "—")}`,
+    request_id:event["Request ID"] || event["AWS Request ID"] || "—",
+  }));
   return (
     <>
       <section className="operation-page-lead"><div className="operation-lead-icon"><FaAws /></div><div><span>AMAZON WEB SERVICES</span><h2>Guarded AWS operations</h2><p>Preview, approve, execute and verify infrastructure changes from one controlled workspace.</p></div><div className="aws-lead-actions"><div className="operation-lead-state"><i />{inventory.length} managed resources</div><button onClick={refreshInventory} disabled={syncingInventory}><RefreshCw className={syncingInventory?"spin":""}/>{syncingInventory?"Synchronizing…":"Refresh inventory"}</button><button onClick={() => { sessionStorage.setItem("opsagent-chat-draft", "Provision a new AWS EC2 virtual machine."); onNavigate?.("OpsAgent chat"); }}><Sparkles /> Create new VM with agent</button></div></section>
@@ -2744,6 +2755,7 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
           </section>}
         </article>
       </section>
+      {audit && <SimpleTable rows={auditRows} title="Logs" />}
     </>
   );
 }

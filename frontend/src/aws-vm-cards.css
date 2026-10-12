@@ -89,7 +89,7 @@
 .aws-storage-tools span { margin-right: auto; color: #758397; font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
 .aws-storage-tools button { padding: 7px 10px; color: #aebaca; background: transparent; border: 1px solid #344658; border-radius: 7px; font-size: 10px; cursor: pointer; }
 
-.aws-operation-review { position: fixed; right: 24px; bottom: 20px; z-index: 80; width: min(720px, calc(100vw - 310px)); max-height: calc(100vh - 100px); overflow-y: auto; background: #0c121a; border: 1px solid #4868d4; border-radius: 12px; box-shadow: 0 22px 70px #07101d73,0 0 0 3px #4868d412; outline: none; }
+.aws-operation-review { position: relative; width: 100%; margin-top: 16px; overflow: hidden; background: #0c121a; border: 1px solid #4868d4; border-radius: 10px; box-shadow: 0 0 0 3px #4868d412; outline: none; }
 .aws-operation-review > header { display: flex; justify-content: space-between; gap: 20px; padding: 15px 18px; background: #111b28; border-bottom: 1px solid #29394a; }
 .aws-operation-review > header span { color: #7e8da1; font-size: 9px; font-weight: 700; letter-spacing: .1em; }
 .aws-operation-review > header h3 { margin: 4px 0; font-size: 16px; }
@@ -176,7 +176,6 @@
   .aws-toolbar-actions .toolbar-divider { width: 100%; height: 1px; flex-basis: 100%; }
   .aws-compliance-heading { grid-template-columns: 38px 1fr; }
   .aws-compliance-heading > div:last-child { grid-column: 2; align-items: flex-start; }
-  .aws-operation-review { right: 10px; bottom: 10px; width: calc(100vw - 20px); max-height: calc(100dvh - 20px); }
   .aws-execution-body { grid-template-columns: 1fr; }
   .aws-stage-list { border-right: 0; border-bottom: 1px solid #26394b; }
 }
