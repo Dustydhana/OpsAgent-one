@@ -2546,6 +2546,7 @@ function AwsOperationsV2({ servers, user, onNavigate }: { servers: Machine[]; us
   const [result, setResult] = useState("");
   const [busy, setBusy] = useState(false);
   const [operationStarted, setOperationStarted] = useState(false);
+  const [showLiveTrail, setShowLiveTrail] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [progressStage, setProgressStage] = useState(0);
   const operationPanel = useRef<HTMLElement | null>(null);
@@ -2655,6 +2656,7 @@ function AwsOperationsV2({ servers, user, onNavigate }: { servers: Machine[]; us
     setConfirmation("");
     setResult("");
     setOperationStarted(false);
+    setShowLiveTrail(false);
   };
   const actionLabel: Record<string, string> = {
     start_instance: "Start VM", stop_instance: "Stop VM", reboot_instance: "Reboot VM",
@@ -2746,7 +2748,7 @@ function AwsOperationsV2({ servers, user, onNavigate }: { servers: Machine[]; us
             >
               Confirm and run
             </button>
-            </>:<><section className={`aws-simple-progress ${!busy&&result?"failed":""}`} aria-live="polite"><header><div>{!busy&&result?<AlertTriangle/>:progressStage>=4?<CheckCircle2/>:<RefreshCw className="spin"/>}<span><strong>{!busy&&result?"Operation failed":progressStage>=4?"Operation completed":"Operation in progress"}</strong><small>{selected?.server_name || identifier} · {elapsedSeconds}s</small></span></div><b>{Math.min(100,(progressStage+1)*20)}%</b></header><div className="aws-simple-track"><i style={{width:`${Math.min(100,(progressStage+1)*20)}%`}}/></div><ol>{["Verified","Submitted","Changing state","Checking state","Completed"].map((label,index)=><li className={!busy&&result&&index===progressStage?"failed":index<progressStage||progressStage>=4?"complete":index===progressStage?"active":""} key={label}><i>{index<progressStage||progressStage>=4?<CheckCircle2/>:index+1}</i><span>{label}</span></li>)}</ol><footer>{!busy&&result?result:progressStage>=4?"AWS state verified successfully.":"OpsAgent is waiting for AWS to report the final state."}</footer></section>{!busy&&result&&<div className="aws-progress-actions"><button type="button" onClick={()=>{setAction("");setOperationStarted(false);}}>Close</button><button type="button" onClick={()=>{setOperationStarted(false);setResult("");}}>Try again</button></div>}</>}
+            </>:<><section className={`aws-simple-progress ${!busy&&result?"failed":""}`} aria-live="polite"><header><div>{!busy&&result?<AlertTriangle/>:progressStage>=4?<CheckCircle2/>:<RefreshCw className="spin"/>}<span><strong>{!busy&&result?"Operation failed":progressStage>=4?"Operation completed":"Operation in progress"}</strong><small>{selected?.server_name || identifier} · {elapsedSeconds}s</small></span></div><b>{Math.min(100,(progressStage+1)*20)}%</b></header><div className="aws-simple-track"><i style={{width:`${Math.min(100,(progressStage+1)*20)}%`}}/></div><ol>{["Verified","Submitted","Changing state","Checking state","Completed"].map((label,index)=><li className={!busy&&result&&index===progressStage?"failed":index<progressStage||progressStage>=4?"complete":index===progressStage?"active":""} key={label}><i>{index<progressStage||progressStage>=4?<CheckCircle2/>:index+1}</i><span>{label}</span></li>)}</ol><footer>{!busy&&result?result:progressStage>=4?"AWS state verified successfully.":"OpsAgent is waiting for AWS to report the final state."}</footer><button type="button" className="aws-live-trail-toggle" onClick={()=>setShowLiveTrail((value)=>!value)}>{showLiveTrail?"Hide live trail":"Show live trail"}<ChevronDown className={showLiveTrail?"open":""}/></button>{showLiveTrail&&<pre className="aws-live-trail"><code><span>00:00</span> Verify user identity and RBAC{"\n"}<span>00:01</span> Submit {action} for {identifier}{progressStage>=1?"\n00:02 AWS accepted the request":""}{progressStage>=2?"\n00:03 Resource state transition detected":""}{progressStage>=3?"\n00:04 Polling EC2 instance state":""}{progressStage>=4?"\n00:05 Final AWS state verified":""}{!busy&&result?`\nERROR ${result}`:""}</code></pre>}</section>{!busy&&result&&<div className="aws-progress-actions"><button type="button" onClick={()=>{setAction("");setOperationStarted(false);}}>Close</button><button type="button" onClick={()=>{setOperationStarted(false);setResult("");setShowLiveTrail(false);}}>Try again</button></div>}</>}
           </form>
           </section></div>}
         </article>

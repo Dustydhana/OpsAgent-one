@@ -163,6 +163,11 @@
 .aws-simple-progress li.failed { color: #e55e6d; font-weight: 700; }
 .aws-simple-progress li.failed > i { color: #fff; background: #d94e5e; }
 .aws-simple-progress.failed > footer { color: #e47a85; }
+.aws-live-trail-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding: 8px 0 0; color: #7f91a5; background: transparent; border: 0; border-top: 1px solid #2b3a4a; font-size: 9px; font-weight: 700; cursor: pointer; }
+.aws-live-trail-toggle svg { width: 14px; transition: transform .18s; }
+.aws-live-trail-toggle svg.open { transform: rotate(180deg); }
+.aws-live-trail { max-height: 150px; margin: 10px 0 0; padding: 11px 12px; overflow: auto; color: #a9bdcf; background: #081019; border: 1px solid #26394a; border-radius: 7px; white-space: pre-wrap; word-break: break-word; font: 9px/1.7 Consolas,"Courier New",monospace; }
+.aws-live-trail span { color: #55ca97; }
 .aws-progress-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 .aws-progress-actions button { padding: 8px 13px; color: #aebaca; background: #172331; border: 1px solid #344658; border-radius: 7px; font-size: 10px; font-weight: 700; cursor: pointer; }
 .aws-progress-actions button:last-child { color: #fff; background: #4965dc; border-color: #4965dc; }
@@ -173,6 +178,8 @@
 :root[data-theme="light"] .aws-simple-progress li.active > i { color: #fff; background: #4265d8; }
 :root[data-theme="light"] .aws-simple-progress li.complete > i { color: #fff; background: #249d6d; }
 :root[data-theme="light"] .aws-simple-progress > footer { border-color: #dce3eb; }
+:root[data-theme="light"] .aws-live-trail-toggle { color: #53657a; border-color: #dce3eb; }
+:root[data-theme="light"] .aws-live-trail { color: #c8d6e4; background: #101923; border-color: #293b4d; }
 :root[data-theme="light"] .aws-progress-actions button { color: #35465b; background: #fff; border-color: #c8d2de; }
 :root[data-theme="light"] .aws-progress-actions button:last-child { color: #fff; background: #4262d5; border-color: #4262d5; }
 
