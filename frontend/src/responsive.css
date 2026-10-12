@@ -141,3 +141,85 @@ input, select, textarea, button { max-width: 100%; }
   .pie-layout { grid-template-columns: 1fr !important; justify-items: center; }
   .chart-legend { width: 100%; }
 }
+/* Public authentication must opt out of the desktop application's 1100px body. */
+body:has(.public-auth-page) {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+@media (max-width: 720px) {
+  .public-auth-page.public-auth-page {
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .public-auth-page.public-auth-page .public-auth-shell {
+    display: block;
+    width: 100%;
+    min-height: auto;
+    margin: 0;
+    padding: max(18px, env(safe-area-inset-top)) 14px
+      max(24px, env(safe-area-inset-bottom));
+  }
+
+  .public-auth-page .auth-value,
+  .public-auth-page .auth-grid-pattern,
+  .public-auth-page .auth-flow-lines,
+  .public-auth-page .auth-flow-node {
+    display: none !important;
+  }
+
+  .public-auth-page.public-auth-page .public-auth-card {
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 24px 18px !important;
+    transform: none;
+    overflow: visible;
+  }
+
+  .public-auth-page .auth-mode-tabs {
+    justify-content: flex-start;
+    gap: 22px;
+    margin-bottom: 20px;
+  }
+
+  .public-auth-page .auth-mode-tabs button {
+    width: auto;
+    font-size: 19px;
+  }
+
+  .public-auth-page .auth-sso {
+    grid-template-columns: 1fr;
+  }
+
+  .public-auth-page .auth-sso .provider-google {
+    grid-column: auto;
+  }
+
+  .public-auth-page .public-auth-card input,
+  .public-auth-page .signup-form select {
+    width: 100%;
+    min-width: 0;
+    font-size: 16px;
+  }
+
+  .public-auth-page .signup-form {
+    grid-template-columns: 1fr !important;
+  }
+
+  .public-auth-page .signup-form label,
+  .public-auth-page .signup-form .error,
+  .public-auth-page .signup-form > button {
+    grid-column: 1 !important;
+  }
+
+  .public-auth-page > footer {
+    position: static;
+    min-height: 34px;
+    height: auto;
+    padding: 6px 14px max(8px, env(safe-area-inset-bottom));
+  }
+}
