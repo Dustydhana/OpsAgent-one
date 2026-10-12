@@ -304,9 +304,11 @@ class MembershipRequest(BaseModel):
     status: str = "active"
 
 
-class InvitationRequest(BaseModel):
-    email: str
-    role: str = "Viewer"
+class OrganizationAccountRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=64)
+    display_name: str = Field(min_length=1, max_length=120)
+    password: str = Field(min_length=12, max_length=256)
+    role: str = Field(default="Viewer", pattern=r"^(Admin|Operator|Approver|Viewer|Auditor)$")
 
 
 def current_user(authorization: str | None = Header(default=None)):
@@ -497,12 +499,20 @@ def update_membership(username: str, request: MembershipRequest, _user=Depends(c
     return {"updated": True}
 
 
-@app.post("/api/v1/iam/invitations")
-def create_invitation(request: InvitationRequest, _user=Depends(current_user)):
+@app.post("/api/v1/iam/members", status_code=201)
+def create_organization_account(request: OrganizationAccountRequest, _user=Depends(current_user)):
     if _user["organization_role"] not in {"Owner", "Admin"}:
         raise HTTPException(403, "Organization administrator access required")
     try:
-        return iam.invite(_user["organization_id"], request.email, request.role, _user["username"])
+        if auth.get_user(request.username):
+            raise ValueError("Username already exists")
+        application_role = "Admin" if request.role == "Admin" else ("Operator" if request.role in {"Operator", "Approver"} else "Viewer")
+        user = auth.create_user(
+            request.username, request.password, application_role,
+            display_name=request.display_name, created_by=_user["username"],
+        )
+        iam.add_member(_user["organization_id"], user["username"], request.role, _user["username"])
+        return {"user": user, "organization_role": request.role}
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
 

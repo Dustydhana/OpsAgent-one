@@ -2874,7 +2874,9 @@ function Account({ user }: { user: User }) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [message, setMessage] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
+  const [newUsername, setNewUsername] = useState("");
+  const [newDisplayName, setNewDisplayName] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [inviteRole, setInviteRole] = useState("Viewer");
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [mfaSetup, setMfaSetup] = useState<{secret:string;otpauth_uri:string}|null>(null);
@@ -2914,15 +2916,18 @@ function Account({ user }: { user: User }) {
       setMessage((error as Error).message);
     }
   }
-  async function invite(e: FormEvent) {
+  async function createAccount(e: FormEvent) {
     e.preventDefault();
     try {
-      const result = await api<{ token: string }>("/iam/invitations", {
+      await api("/iam/members", {
         method: "POST",
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+        body: JSON.stringify({ username:newUsername, display_name:newDisplayName, password:newPassword, role:inviteRole }),
       });
-      setMessage(`Invitation created. One-time token: ${result.token}`);
-      setInviteEmail("");
+      setMessage(`Account ${newUsername} created successfully. The user can sign in now.`);
+      setNewUsername("");
+      setNewDisplayName("");
+      setNewPassword("");
+      await refreshAccess();
     } catch (error) {
       setMessage((error as Error).message);
     }
@@ -2990,18 +2995,35 @@ function Account({ user }: { user: User }) {
         <>
           <section className="panel invitation-panel">
             <div>
-              <h3>Invite organization member</h3>
+              <h3>Create organization account</h3>
               <p className="muted">
-                Invite users with least-privilege access to this organization.
+                Create a local account that can sign in immediately.
               </p>
             </div>
-            <form onSubmit={invite}>
+            <form onSubmit={createAccount}>
               <input
-                type="email"
                 required
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="name@company.com"
+                minLength={3}
+                maxLength={64}
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g,""))}
+                placeholder="Username"
+              />
+              <input
+                required
+                maxLength={120}
+                value={newDisplayName}
+                onChange={(e) => setNewDisplayName(e.target.value)}
+                placeholder="Display name"
+              />
+              <input
+                type="password"
+                required
+                minLength={12}
+                maxLength={256}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Temporary password (12+ characters)"
               />
               <select
                 value={inviteRole}
@@ -3013,7 +3035,7 @@ function Account({ user }: { user: User }) {
                 <option>Auditor</option>
                 <option>Admin</option>
               </select>
-              <button>Generate invitation</button>
+              <button>Create account</button>
             </form>
           </section>
           <h2 className="section-title">Organization users</h2>

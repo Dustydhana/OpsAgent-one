@@ -113,6 +113,21 @@ def update_member(organization_id, username, role, status, actor):
             _audit(cursor,organization_id,actor,"membership_updated",username,{"previous_role":before[0],"role":role,"status":status})
         connection.commit()
 
+def add_member(organization_id, username, role, actor):
+    """Add an existing local application user to an organization."""
+    if role not in set(ROLES)-{"Owner"}:
+        raise ValueError("Invalid organization role")
+    with database.connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1 FROM ops_agent.app_users WHERE username=%s", (username,))
+            if not cursor.fetchone():
+                raise ValueError("Application user not found")
+            cursor.execute("""INSERT INTO ops_agent.organization_memberships
+                (organization_id,username,role) VALUES (%s,%s,%s)""",
+                (organization_id,username,role))
+            _audit(cursor,organization_id,actor,"member_created",username,{"role":role})
+        connection.commit()
+
 def invite(organization_id,email,role,actor):
     if role not in set(ROLES)-{"Owner"}: raise ValueError("Invalid invitation role")
     token=secrets.token_urlsafe(32); invitation_id=f"inv-{uuid.uuid4().hex}"
