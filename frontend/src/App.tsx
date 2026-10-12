@@ -934,6 +934,7 @@ function Dashboard({
   };
   const [operations, setOperations] = useState<{ summary: Record<string, number>; events: Record<string, unknown>[] } | null>(null);
   const [awsDashboard, setAwsDashboard] = useState<AwsDashboardSummary | null>(null);
+  const [usageSummary, setUsageSummary] = useState<Record<string, number> | null>(null);
   const [slack, setSlack] = useState<Record<string, number> | null>(null);
   const [gmail, setGmail] = useState<Record<string, number> | null>(null);
   const [hardware, setHardware] = useState<HardwareDashboard | null>(null);
@@ -967,8 +968,9 @@ function Dashboard({
       api<HardwareDashboard>("/hardware/dashboard"),
       api<SccmInventory>("/sccm/inventory"),
       api<AwsDashboardSummary>("/operations/aws/dashboard"),
+      api<Record<string, number>>("/usage/summary?hours=720"),
     ]);
-    const [awsResult, slackResult, gmailResult, logResult, hardwareResult, sccmResult, awsDashboardResult] = results;
+    const [awsResult, slackResult, gmailResult, logResult, hardwareResult, sccmResult, awsDashboardResult, usageResult] = results;
     if (awsResult.status === "fulfilled") setOperations(awsResult.value);
     if (slackResult.status === "fulfilled") setSlack(slackResult.value.summary);
     if (gmailResult.status === "fulfilled") setGmail(gmailResult.value.summary);
@@ -976,7 +978,8 @@ function Dashboard({
     if (hardwareResult.status === "fulfilled") setHardware(hardwareResult.value);
     if (sccmResult.status === "fulfilled") setSccmDashboard(sccmResult.value);
     if (awsDashboardResult.status === "fulfilled") setAwsDashboard(awsDashboardResult.value);
-    const names = ["Change audit", "Slack", "Gmail", "Operational logs", "Hardware", "SCCM", "AWS insights"];
+    if (usageResult.status === "fulfilled") setUsageSummary(usageResult.value);
+    const names = ["Change audit", "Slack", "Gmail", "Operational logs", "Hardware", "SCCM", "AWS insights", "Usage"];
     setLoadIssues(results.flatMap((result, index) => result.status === "rejected" ? [names[index]] : []));
     setLastUpdated(new Date());
     setRefreshing(false);
@@ -1129,8 +1132,8 @@ function Dashboard({
       </section>
 
       <section className="dashboard-aws-widgets">
-        <article className="dashboard-aws-card cost"><header><div><span>AWS BILLING</span><h3>Cost and usage</h3></div><button onClick={() => onNavigate?.("AI usage & cost")}>View details <ChevronRight/></button></header>{awsDashboard?.cost.available ? <div className="aws-cost-content"><div><small>Month to date</small><strong>{new Intl.NumberFormat("en-US", {style:"currency", currency:awsDashboard.cost.currency || "USD"}).format(awsDashboard.cost.month_to_date || 0)}</strong><span>Live Cost Explorer total</span></div><div className="aws-cost-bars">{(awsDashboard.cost.daily || []).slice(-14).map((item) => { const max = Math.max(0.01, ...(awsDashboard.cost.daily || []).slice(-14).map((day) => day.amount)); return <i key={item.date} style={{height:`${Math.max(4,item.amount/max*100)}%`}} title={`${item.date}: ${item.amount}`}/>; })}</div></div> : <div className="aws-widget-empty"><Database/><div><strong>Cost data unavailable</strong><span>{awsDashboard?.cost.message || "Loading AWS Cost Explorer…"}</span></div><button onClick={() => onNavigate?.("Connections")}>Configure AWS</button></div>}</article>
-        <article className="dashboard-aws-card health"><header><div><span>ACCOUNT STATUS</span><h3>AWS Health</h3></div><button onClick={() => onNavigate?.("AWS operations")}>Open AWS <ChevronRight/></button></header>{awsDashboard?.health.available ? <div className="aws-health-content"><div><small>Open issues</small><strong className={(awsDashboard.health.open_issues || 0) > 0 ? "warning" : "healthy"}>{awsDashboard.health.open_issues || 0}</strong></div><div><small>Scheduled changes</small><strong>{awsDashboard.health.scheduled_changes || 0}</strong></div>{(awsDashboard.health.events || []).slice(0,2).map((event,index)=><p key={`${event.type}-${index}`}><i/><span><b>{event.service}</b>{event.type.replaceAll("_"," ")}</span><small>{event.region}</small></p>)}</div> : <div className="aws-widget-empty"><Activity/><div><strong>Health data unavailable</strong><span>{awsDashboard?.health.message || "Loading AWS Health…"}</span></div><button onClick={() => onNavigate?.("Connections")}>Check connection</button></div>}</article>
+        <article className="dashboard-aws-card cost"><header><div><span>OPSAGENT FINOPS</span><h3>Cost and usage</h3></div><button onClick={() => onNavigate?.("AI usage & cost")}>View details <ChevronRight/></button></header>{usageSummary ? <div className="platform-usage-content"><div><small>Estimated model cost · 30 days</small><strong>${Number(usageSummary.cost_usd || 0).toFixed(2)}</strong><span>Based on configured model token rates</span></div><div className="platform-usage-metrics"><p><span>Model calls</span><b>{Number(usageSummary.calls || 0).toLocaleString()}</b></p><p><span>Total tokens</span><b>{Number(usageSummary.total_tokens || 0).toLocaleString()}</b></p><p><span>Interactions</span><b>{Number(usageSummary.interactions || 0).toLocaleString()}</b></p></div></div> : <div className="aws-widget-empty"><Database/><div><strong>Usage data unavailable</strong><span>Admin access is required to view organization model usage.</span></div><button onClick={() => onNavigate?.("AI usage & cost")}>Open usage</button></div>}</article>
+        <article className="dashboard-aws-card requests"><header><div><span>REQUEST CHANNELS</span><h3>Alert and request processing</h3></div><button onClick={() => onNavigate?.("Slack alerts")}>Open alerts <ChevronRight/></button></header><div className="dashboard-request-summary"><button onClick={()=>onNavigate?.("Slack alerts")}><FaSlack/><span>Slack</span><strong>{slack?.received ?? "—"}</strong><small>received</small><b>{slack?.average_ack_seconds != null ? `${slack.average_ack_seconds}s avg ack` : "No response data"}</b></button><button onClick={()=>onNavigate?.("Gmail alerts")}><SiGmail/><span>Gmail</span><strong>{gmail?.received ?? "—"}</strong><small>received</small><b>{gmail?.processed ?? "—"} processed</b></button><button onClick={()=>onNavigate?.("AWS operations")}><ShieldCheck/><span>Changes</span><strong>{operations?.summary.succeeded ?? "—"}</strong><small>succeeded</small><b className={operationFailed ? "failed" : ""}>{operationFailed ?? "—"} failed</b></button></div></article>
         <article className="dashboard-aws-card platforms"><header><div><span>INTEGRATIONS</span><h3>Connected platforms</h3></div><button onClick={() => onNavigate?.("Connections")}>Manage <ChevronRight/></button></header><div className="dashboard-platform-list">{platformConnections.map(([name,status]) => <button key={name} onClick={() => onNavigate?.("Connections")}><i className={status === "Connected" ? "connected" : status === "Attention" ? "attention" : ""}/><span>{name}</span><small>{status}</small><ChevronRight/></button>)}</div></article>
       </section>
 
@@ -2577,6 +2580,7 @@ function LinuxOperations({ servers }: { servers: Machine[] }) {
 }
 
 function AwsOperationsV2({ servers, user, onNavigate }: { servers: Machine[]; user: User; onNavigate?: (page: string) => void }) {
+  const [awsInsights, setAwsInsights] = useState<{cost:{available:boolean;month_to_date?:number;currency?:string;message?:string};health:{available:boolean;open_issues?:number;scheduled_changes?:number;message?:string}} | null>(null);
   const [inventory, setInventory] = useState(servers);
   const [syncingInventory, setSyncingInventory] = useState(false);
   const [inventoryMessage, setInventoryMessage] = useState("");
@@ -2598,7 +2602,7 @@ function AwsOperationsV2({ servers, user, onNavigate }: { servers: Machine[]; us
   const operationPanel = useRef<HTMLElement | null>(null);
   useEffect(() => { setInventory(servers); }, [servers]);
   const loadAudit = () => api<{events: Record<string, unknown>[]}>("/operations/aws/audit").then(setAudit);
-  useEffect(() => { loadAudit().catch(()=>undefined); }, []);
+  useEffect(() => { loadAudit().catch(()=>undefined); api<{cost:{available:boolean;month_to_date?:number;currency?:string;message?:string};health:{available:boolean;open_issues?:number;scheduled_changes?:number;message?:string}}>("/operations/aws/dashboard").then(setAwsInsights).catch(()=>undefined); }, []);
   useEffect(() => {
     if (action) window.requestAnimationFrame(()=>operationPanel.current?.focus());
   }, [action]);
@@ -2729,6 +2733,7 @@ function AwsOperationsV2({ servers, user, onNavigate }: { servers: Machine[]; us
   return (
     <>
       <section className="operation-page-lead"><div className="operation-lead-icon"><FaAws /></div><div><span>AMAZON WEB SERVICES</span><h2>Guarded AWS operations</h2><p>Preview, approve, execute and verify infrastructure changes from one controlled workspace.</p></div><div className="aws-lead-actions"><div className="operation-lead-state"><i />{inventory.length} managed resources</div><button onClick={refreshInventory} disabled={syncingInventory}><RefreshCw className={syncingInventory?"spin":""}/>{syncingInventory?"Synchronizing…":"Refresh inventory"}</button><button onClick={() => { sessionStorage.setItem("opsagent-chat-draft", "Provision a new AWS EC2 virtual machine."); onNavigate?.("OpsAgent chat"); }}><Sparkles /> Create new VM with agent</button></div></section>
+      <section className="aws-insights-strip"><article><Database/><div><span>AWS COST EXPLORER</span><h3>{awsInsights?.cost.available ? new Intl.NumberFormat("en-US",{style:"currency",currency:awsInsights.cost.currency||"USD"}).format(awsInsights.cost.month_to_date||0) : "Unavailable"}</h3><small>{awsInsights?.cost.available ? "Month-to-date AWS usage" : awsInsights?.cost.message || "Loading billing usage…"}</small></div></article><article><Activity/><div><span>AWS HEALTH</span><h3>{awsInsights?.health.available ? `${awsInsights.health.open_issues || 0} open issues` : "Unavailable"}</h3><small>{awsInsights?.health.available ? `${awsInsights.health.scheduled_changes || 0} scheduled changes` : awsInsights?.health.message || "Loading account health…"}</small></div></article></section>
       {inventoryMessage&&<div className={`aws-inventory-message ${inventory.length?"success":"attention"}`}>{inventory.length?<CheckCircle2/>:<AlertTriangle/>}<span>{inventoryMessage}{!inventory.length&&" Check that the selected region contains EC2 instances and the IAM policy allows ec2:DescribeInstances."}</span></div>}
       <section className="aws-overview">
         <article className="aws-command">
