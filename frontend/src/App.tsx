@@ -795,23 +795,18 @@ function App() {
               {sidebarCompact ? <ChevronsRight /> : <Menu />}
             </button>
             <button className="topbar-brand" onClick={() => navigatePage("Dashboard")} aria-label="OpsAgent One home"><BrandLockup compact /></button>
-            <div className="breadcrumb">
-              <span>OpsAgent One</span>
-              <b>/</b>
-              <strong>{active}</strong>
-            </div>
-          </div>
-          <div className="context">
             <button className="global-search" onClick={() => navigatePage("Server inventory")}>
               <Search />
-              Search resources
+              <span>Search resources</span>
               <kbd>⌘ K</kbd>
             </button>
+          </div>
+          <div className="context">
             <button className="bell" onClick={() => navigatePage("Slack alerts")} title="Open operational alerts">
               <Bell />
             </button>
             <button className="top-profile top-account" onClick={() => navigatePage("Account & access")} title="Account and access">
-              <span><strong>{user.display_name}</strong><small>{user.name || "Current organization"} · {displayRole(user.organization_role || user.role)}</small></span><i>{user.display_name.slice(0, 2).toUpperCase()}</i><ChevronDown/>
+              <i>{user.display_name.slice(0, 2).toUpperCase()}</i><span><strong>{user.display_name}</strong><small>{displayRole(user.organization_role || user.role)}</small></span><ChevronDown/>
             </button>
           </div>
         </div>
