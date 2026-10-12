@@ -16,6 +16,12 @@
 .aws-toolbar-actions button.stop:not(:disabled) { color: #fff; background: #b94855; border-color: #b94855; }
 .aws-toolbar-actions button.danger:not(:disabled) { color: #ee7d88; background: #28171b; border-color: #743b43; }
 .aws-toolbar-actions button:disabled { color: #657182; background: #141c26; border-color: #283543; opacity: .6; cursor: not-allowed; }
+.aws-toolbar-actions .toolbar-divider { width: 1px; align-self: stretch; margin: 0 2px; background: #354354; }
+.aws-instance-filters { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #0e1620; border-bottom: 1px solid #2b3948; }
+.aws-instance-filters > span { margin-right: 4px; color: #78879a; font-size: 9px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.aws-instance-filters button { padding: 5px 9px; color: #8795a7; background: transparent; border: 1px solid transparent; border-radius: 16px; font-size: 10px; cursor: pointer; }
+.aws-instance-filters button:hover { color: #cbd4df; background: #172230; }
+.aws-instance-filters button.active { color: #fff; background: #26364a; border-color: #42566c; }
 .aws-instance-table-wrap { width: 100%; overflow-x: auto; scrollbar-color: #526277 #151e29; scrollbar-width: thin; }
 .aws-instance-table { width: max-content; min-width: 100%; border-collapse: collapse; color: #c5ced9; font-size: 11px; }
 .aws-instance-table th { height: 34px; padding: 0 12px; color: #8492a4; background: #0f1721; border-right: 1px solid #273443; border-bottom: 1px solid #344252; font-size: 9px; font-weight: 750; letter-spacing: .04em; text-align: left; white-space: nowrap; }
@@ -31,6 +37,15 @@
 .aws-table-name i.linux { color: #e2b843; background: #3b3010; }
 .aws-table-name svg { width: 13px; }
 .aws-instance-table .vm-power-state { width: fit-content; }
+.aws-compliance-heading { display: grid; grid-template-columns: 42px minmax(0,1fr) auto; gap: 14px; align-items: center; margin-top: 26px; padding: 17px 20px; background: #101923; border: 1px solid #2b3948; border-bottom: 0; border-radius: 10px 10px 0 0; }
+.aws-compliance-icon { width: 38px; height: 38px; display: grid; place-items: center; color: #42cb91; background: #132c24; border-radius: 9px; }
+.aws-compliance-icon svg { width: 19px; }
+.aws-compliance-heading span { color: #758397; font-size: 8px; font-weight: 750; letter-spacing: .12em; }
+.aws-compliance-heading h2 { margin: 3px 0; font-size: 17px; }
+.aws-compliance-heading p { margin: 0; color: #8694a6; font-size: 11px; }
+.aws-compliance-heading > div:last-child { display: flex; flex-direction: column; align-items: flex-end; }
+.aws-compliance-heading > div:last-child b { font-size: 18px; }
+.aws-compliance-heading > div:last-child small { color: #758397; }
 
 .aws-vm-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 20px; }
 .aws-vm-card { min-width: 0; overflow: hidden; background: #0d141d; border: 1px solid #2b3948; border-radius: 11px; transition: border-color .15s, box-shadow .15s, transform .15s; cursor: pointer; }
@@ -93,12 +108,17 @@
 :root[data-theme="light"] .aws-toolbar-actions button.stop:not(:disabled) { color: #fff; background: #b94855; border-color: #b94855; }
 :root[data-theme="light"] .aws-toolbar-actions button.danger:not(:disabled) { color: #b93645; background: #fff6f7; border-color: #e1a9b0; }
 :root[data-theme="light"] .aws-toolbar-actions button:disabled { color: #9ba6b3; background: #f2f4f7; border-color: #dfe4ea; }
+:root[data-theme="light"] .aws-toolbar-actions .toolbar-divider { background: #d5dde6; }
+:root[data-theme="light"] .aws-instance-filters { background: #f8fafc; border-color: #d9e1ea; }
+:root[data-theme="light"] .aws-instance-filters button:hover { color: #26374c; background: #eef2f7; }
+:root[data-theme="light"] .aws-instance-filters button.active { color: #1f4db3; background: #e9f0ff; border-color: #b9caf2; }
 :root[data-theme="light"] .aws-instance-table { color: #28384d; }
 :root[data-theme="light"] .aws-instance-table th { color: #536274; background: #f4f6f9; border-color: #d3dce6; }
 :root[data-theme="light"] .aws-instance-table td { border-color: #e1e6ed; }
 :root[data-theme="light"] .aws-instance-table tbody tr:hover { background: #f5f8fc; }
 :root[data-theme="light"] .aws-instance-table tbody tr.selected { background: #edf3ff; }
 :root[data-theme="light"] .aws-instance-table code { color: #0969da; }
+:root[data-theme="light"] .aws-compliance-heading { color: #172033; background: #fff; border-color: #d7dfe8; }
 :root[data-theme="light"] .aws-vm-card { background: #fff; border-color: #d6dee8; }
 :root[data-theme="light"] .aws-vm-card:hover { border-color: #93a4b7; }
 :root[data-theme="light"] .aws-vm-card.selected { border-color: #4868d4; }
@@ -123,6 +143,9 @@
   .vm-action-group.danger-group { margin-left: 0; }
   .aws-table-toolbar { align-items: flex-start; flex-direction: column; }
   .aws-toolbar-actions { justify-content: flex-start; }
+  .aws-toolbar-actions .toolbar-divider { width: 100%; height: 1px; flex-basis: 100%; }
+  .aws-compliance-heading { grid-template-columns: 38px 1fr; }
+  .aws-compliance-heading > div:last-child { grid-column: 2; align-items: flex-start; }
 }
 
 @media (max-width: 540px) {

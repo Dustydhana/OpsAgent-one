@@ -2278,8 +2278,8 @@ function Chat() {
 }
 
 function AwsOperations({ servers }: { servers: Machine[] }) {
-  const [action, setAction] = useState("");
-  const [target, setTarget] = useState("");
+  const [action, setAction] = useState("start_instance");
+  const [target, setTarget] = useState(servers[0]?.aws_instance_id || "");
   const [confirmation, setConfirmation] = useState("");
   const [result, setResult] = useState("");
   const [busy, setBusy] = useState(false);
@@ -2532,8 +2532,10 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
   const [inventory, setInventory] = useState(servers);
   const [syncingInventory, setSyncingInventory] = useState(false);
   const [inventoryMessage, setInventoryMessage] = useState("");
-  const [action, setAction] = useState("start_instance");
-  const [target, setTarget] = useState(servers[0]?.aws_instance_id || "");
+  const [action, setAction] = useState("");
+  const [target, setTarget] = useState("");
+  const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
+  const [instanceFilter, setInstanceFilter] = useState<"all"|"running"|"stopped">("all");
   const [confirmation, setConfirmation] = useState("");
   const [instanceType, setInstanceType] = useState("t3.small");
   const [volume, setVolume] = useState("");
@@ -2658,6 +2660,20 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
   };
   const runningCount = inventory.filter((server) => String(server.status).toLowerCase() === "running").length;
   const stoppedCount = inventory.filter((server) => String(server.status).toLowerCase() === "stopped").length;
+  const visibleInstances = inventory.filter((server) => instanceFilter === "all" || String(server.status).toLowerCase() === instanceFilter);
+  const singleSelection = selectedTargets.length === 1 ? inventory.find((server)=>server.aws_instance_id===selectedTargets[0]) : undefined;
+  const selectInstance = (instanceId: string, checked: boolean) => {
+    setSelectedTargets((current)=>checked ? Array.from(new Set([...current,instanceId])) : current.filter((id)=>id!==instanceId));
+    if (checked) setTarget(instanceId); else if (target===instanceId) setTarget("");
+    setAction(""); setConfirmation("");
+  };
+  const auditRows = (audit?.events || []).map((event)=>({
+    time:event.time || event.created_at || "—", action:String(event.action || "—").replaceAll("_"," "),
+    target:event.target || event.instance_id || event.volume_id || event.snapshot_id || "—",
+    status:event.status || "—", requester:event.requester || "—", approver:event.approver || "—",
+    state_change:`${String(event.before || "—")} → ${String(event.after || "—")}`,
+    request_id:event.request_id || event.aws_request_id || "—",
+  }));
   return (
     <>
       <section className="operation-page-lead"><div className="operation-lead-icon"><FaAws /></div><div><span>AMAZON WEB SERVICES</span><h2>Guarded AWS operations</h2><p>Preview, approve, execute and verify infrastructure changes from one controlled workspace.</p></div><div className="aws-lead-actions"><div className="operation-lead-state"><i />{inventory.length} managed resources</div><button onClick={refreshInventory} disabled={syncingInventory}><RefreshCw className={syncingInventory?"spin":""}/>{syncingInventory?"Synchronizing…":"Refresh inventory"}</button><button onClick={() => { sessionStorage.setItem("opsagent-chat-draft", "Provision a new AWS EC2 virtual machine."); onNavigate?.("OpsAgent chat"); }}><Sparkles /> Create new VM with agent</button></div></section>
@@ -2672,10 +2688,10 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
             <div className="aws-state-summary"><span><i className="running"/>{runningCount} Running</span><span><i className="stopped"/>{stoppedCount} Stopped</span><span>{inventory.length} Total</span><span>10 operations available</span></div>
           </div>
           {inventory.length ? <div className="aws-instance-console">
-            <div className="aws-table-toolbar"><div><b>Instances ({inventory.length})</b><span>{selected?`${selected.server_name} selected`:"Select one instance to manage"}</span></div><div className="aws-toolbar-actions"><button className="start" disabled={!selected||String(selected.status).toLowerCase()!=="stopped"} onClick={()=>chooseOperation("start_instance",target)}>Start</button><button className="stop" disabled={!selected||String(selected.status).toLowerCase()!=="running"} onClick={()=>chooseOperation("stop_instance",target)}>Stop</button><button disabled={!selected||String(selected.status).toLowerCase()!=="running"} onClick={()=>chooseOperation("reboot_instance",target)}>Reboot</button><button disabled={!selected} onClick={()=>chooseOperation("resize_instance",target)}>Resize</button><button disabled={!selected} onClick={()=>chooseOperation("create_snapshot",target)}>Snapshot</button><button disabled={!selected} onClick={()=>chooseOperation("detach_secondary_nic",target)}>Detach NIC</button><button className="danger" disabled={!selected} onClick={()=>chooseOperation("terminate_instance",target)}>Terminate</button></div></div>
-            <div className="aws-instance-table-wrap"><table className="aws-instance-table"><thead><tr><th aria-label="Select instance"/><th>Name</th><th>Instance ID</th><th>Instance state</th><th>Instance type</th><th>Status check</th><th>Availability Zone</th><th>Public IPv4 DNS</th><th>Public IPv4</th><th>Elastic IP</th><th>Private IPv4</th><th>Monitoring</th><th>Environment</th></tr></thead><tbody>{inventory.map((server)=>{const state=String(server.status||"unknown").toLowerCase();return <tr className={target===server.aws_instance_id?"selected":""} key={server.aws_instance_id} onClick={()=>{setTarget(server.aws_instance_id);setAction("");setConfirmation("");}}><td><input type="radio" name="aws-instance" checked={target===server.aws_instance_id} onChange={()=>setTarget(server.aws_instance_id)} aria-label={`Select ${server.server_name}`}/></td><td><span className="aws-table-name"><i className={optionOs(server).toLowerCase()}>{optionOs(server).toLowerCase()==="windows"?<FaWindows/>:<SiLinux/>}</i><b>{server.server_name||"Unnamed VM"}</b></span></td><td><code>{server.aws_instance_id}</code></td><td><span className={`vm-power-state ${state}`}><i/>{state}</span></td><td>{server.instance_type||"—"}</td><td>—</td><td>{server.availability_zone||"—"}</td><td title={server.public_dns_name||""}>{server.public_dns_name||"—"}</td><td>{server.public_ip_address||"—"}</td><td>—</td><td>{server.private_ip_address||server.ip_address||"—"}</td><td>{server.monitoring_service||"disabled"}</td><td>{server.environment||"—"}</td></tr>})}</tbody></table></div>
+            <div className="aws-table-toolbar"><div><b>Instances ({visibleInstances.length})</b><span>{selectedTargets.length===0?"Select an instance to manage":selectedTargets.length===1?`${singleSelection?.server_name || "1 instance"} selected`:`${selectedTargets.length} selected · choose one instance to run a guarded action`}</span></div><div className="aws-toolbar-actions"><button className="start" disabled={!singleSelection||String(singleSelection.status).toLowerCase()!=="stopped"} onClick={()=>chooseOperation("start_instance",selectedTargets[0])}>Start</button><button className="stop" disabled={!singleSelection||String(singleSelection.status).toLowerCase()!=="running"} onClick={()=>chooseOperation("stop_instance",selectedTargets[0])}>Stop</button><button disabled={!singleSelection||String(singleSelection.status).toLowerCase()!=="running"} onClick={()=>chooseOperation("reboot_instance",selectedTargets[0])}>Reboot</button><button disabled={!singleSelection} onClick={()=>chooseOperation("resize_instance",selectedTargets[0])}>Resize</button><button disabled={!singleSelection} onClick={()=>chooseOperation("create_snapshot",selectedTargets[0])}>Snapshot</button><button disabled={!singleSelection} onClick={()=>chooseOperation("detach_secondary_nic",selectedTargets[0])}>Detach NIC</button><button className="danger" disabled={!singleSelection} onClick={()=>chooseOperation("terminate_instance",selectedTargets[0])}>Terminate</button><i className="toolbar-divider"/><button onClick={()=>chooseOperation("extend_volume")}>Extend volume</button><button onClick={()=>chooseOperation("delete_volume")}>Delete volume</button><button onClick={()=>chooseOperation("delete_snapshot")}>Delete snapshot</button></div></div>
+            <div className="aws-instance-filters"><span>Instance state</span>{(["all","running","stopped"] as const).map((filter)=><button className={instanceFilter===filter?"active":""} onClick={()=>setInstanceFilter(filter)} key={filter}>{filter==="all"?`All (${inventory.length})`:filter==="running"?`Running (${runningCount})`:`Stopped (${stoppedCount})`}</button>)}</div>
+            <div className="aws-instance-table-wrap"><table className="aws-instance-table"><thead><tr><th><input type="checkbox" checked={visibleInstances.length>0&&visibleInstances.every((server)=>selectedTargets.includes(server.aws_instance_id))} onChange={(event)=>{const ids=visibleInstances.map((server)=>server.aws_instance_id);setSelectedTargets(event.target.checked?Array.from(new Set([...selectedTargets,...ids])):selectedTargets.filter((id)=>!ids.includes(id)));setTarget("");setAction("");setConfirmation("");}} aria-label="Select all visible instances"/></th><th>Name</th><th>Instance ID</th><th>Instance state</th><th>Instance type</th><th>Status check</th><th>Availability Zone</th><th>Public IPv4 DNS</th><th>Public IPv4</th><th>Elastic IP</th><th>Private IPv4</th><th>Monitoring</th><th>Environment</th></tr></thead><tbody>{visibleInstances.map((server)=>{const state=String(server.status||"unknown").toLowerCase();return <tr className={selectedTargets.includes(server.aws_instance_id)?"selected":""} key={server.aws_instance_id} onClick={()=>selectInstance(server.aws_instance_id,!selectedTargets.includes(server.aws_instance_id))}><td><input type="checkbox" checked={selectedTargets.includes(server.aws_instance_id)} onChange={(event)=>selectInstance(server.aws_instance_id,event.target.checked)} onClick={(event)=>event.stopPropagation()} aria-label={`Select ${server.server_name}`}/></td><td><span className="aws-table-name"><i className={optionOs(server).toLowerCase()}>{optionOs(server).toLowerCase()==="windows"?<FaWindows/>:<SiLinux/>}</i><b>{server.server_name||"Unnamed VM"}</b></span></td><td><code>{server.aws_instance_id}</code></td><td><span className={`vm-power-state ${state}`}><i/>{state}</span></td><td>{server.instance_type||"—"}</td><td>—</td><td>{server.availability_zone||"—"}</td><td title={server.public_dns_name||""}>{server.public_dns_name||"—"}</td><td>{server.public_ip_address||"—"}</td><td>—</td><td>{server.private_ip_address||server.ip_address||"—"}</td><td>{server.monitoring_service||"disabled"}</td><td>{server.environment||"—"}</td></tr>})}</tbody></table></div>
           </div>:<div className="aws-vm-empty"><Server/><h3>No EC2 virtual machines found</h3><p>Refresh inventory or verify the connected AWS account and region.</p></div>}
-          <div className="aws-storage-tools"><span>Storage operations</span><button onClick={()=>chooseOperation("extend_volume")}>Extend volume</button><button onClick={()=>chooseOperation("delete_volume")}>Delete volume</button><button onClick={()=>chooseOperation("delete_snapshot")}>Delete snapshot</button></div>
           {action && <section className="aws-operation-review">
             <header><div><span>SELECTED OPERATION</span><h3>{actionLabel[action] || action.replaceAll("_"," ")}</h3><p>{instanceActions.includes(action)?`${selected?.server_name || "Selected VM"} · ${target}`:"Enter the AWS resource identifier below."}</p></div><button onClick={()=>{setAction("");setConfirmation("");}} aria-label="Close operation"><X/></button></header>
           <form className="operation-form" onSubmit={execute}>
@@ -2744,13 +2760,8 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
       </section>
       {audit && (
         <>
-          <section className="section-heading audit-heading">
-            <div>
-              <h2>Operation audit</h2>
-              <p>Complete AWS change history</p>
-            </div>
-          </section>
-          <SimpleTable rows={audit.events} />
+          <section className="aws-compliance-heading"><div className="aws-compliance-icon"><ShieldCheck/></div><div><span>GOVERNANCE & COMPLIANCE</span><h2>Change activity</h2><p>Evidence of who requested and approved each AWS change, what resource changed, and whether it succeeded.</p></div><div><b>{auditRows.length}</b><small>recorded changes</small></div></section>
+          <SimpleTable rows={auditRows} />
         </>
       )}
     </>
