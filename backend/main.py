@@ -184,7 +184,7 @@ class ChatRequest(BaseModel):
 class AwsOperationRequest(BaseModel):
     action: str
     identifier: str
-    confirmation: str
+    password: SecretStr
     region: str | None = None
     instance_type: str | None = None
     volume_id: str | None = None
@@ -774,9 +774,9 @@ def sync_aws_inventory(_user=Depends(current_user)):
 def aws_execute(request: AwsOperationRequest, _user=Depends(require_permission(authorization.OPERATE))):
     if not auth.can_cloud_action(request.action, _user):
         raise HTTPException(403, "Your role cannot perform this operation")
-    expected = f"CONFIRM {request.action.upper()} {request.identifier}"
-    if request.confirmation.strip() != expected:
-        raise HTTPException(422, f"Type exactly: {expected}")
+    verified, error = auth.authenticate(_user["username"], request.password.get_secret_value())
+    if not verified:
+        raise HTTPException(401, error or "Password verification failed")
     credentials = credential_store.resolve_provider(_user["organization_id"], "aws")
     execution_mode = str((credentials or {}).get("execution_mode") or "validation")
     allowed_actions = {value for value in str((credentials or {}).get("allowed_actions") or "").split(",") if value}

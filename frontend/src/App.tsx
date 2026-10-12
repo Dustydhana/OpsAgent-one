@@ -2302,6 +2302,7 @@ function AwsOperations({ servers }: { servers: Machine[] }) {
     } catch (e) {
       setResult((e as Error).message);
     } finally {
+      setConfirmation("");
       setBusy(false);
     }
   }
@@ -2540,10 +2541,6 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
   const [instanceType, setInstanceType] = useState("t3.small");
   const [volume, setVolume] = useState("");
   const [size, setSize] = useState(40);
-  const [audit, setAudit] = useState<{
-    summary: Record<string, number>;
-    events: Record<string, unknown>[];
-  } | null>(null);
   const [result, setResult] = useState("");
   const [busy, setBusy] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -2576,13 +2573,6 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
     "detach_secondary_nic",
   ];
   const identifier = instanceActions.includes(action) ? target : volume;
-  const expected = `CONFIRM ${action.toUpperCase()} ${identifier}`;
-  async function loadAudit() {
-    setAudit(await api("/operations/aws/audit"));
-  }
-  useEffect(() => {
-    loadAudit();
-  }, []);
   useEffect(() => {
     if (!busy) return;
     setElapsedSeconds(0);
@@ -2612,7 +2602,7 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
       const payload: Record<string, unknown> = {
         action,
         identifier,
-        confirmation,
+        password: confirmation,
       };
       if (action === "resize_instance") payload.instance_type = instanceType;
       if (
@@ -2637,10 +2627,8 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
       await api("/connections/aws/sync", { method: "POST" });
       const updatedRecords = await api<Machine[]>("/inventory/servers");
       setInventory(updatedRecords.filter((item) => item.vm_type === "aws" && item.enabled !== false && item.status !== "terminated"));
-      loadAudit();
     } catch (e) {
       setResult((e as Error).message);
-      await loadAudit().catch(() => undefined);
     } finally {
       setBusy(false);
     }
@@ -2671,13 +2659,6 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
     if (checked) setTarget(instanceId); else if (target===instanceId) setTarget("");
     setAction(""); setConfirmation("");
   };
-  const auditRows = (audit?.events || []).map((event)=>({
-    time:event["Time"] || event.time || event.created_at || "—", action:String(event["Action"] || event.action || "—").replaceAll("_"," "),
-    target:event["Target"] || event.target || event["Instance ID"] || event.instance_id || event["Volume ID"] || event.volume_id || event["Snapshot ID"] || event.snapshot_id || "—",
-    status:event["Status"] || event.status || "—", requester:event["Requester"] || event.requester || "—", approver:event["Approver"] || event.approver || "—",
-    state_change:`${String(event["Before"] || event.before || "—")} → ${String(event["After"] || event.after || "—")}`,
-    request_id:event["Request ID"] || event.request_id || event["AWS Request ID"] || event.aws_request_id || "—",
-  }));
   return (
     <>
       <section className="operation-page-lead"><div className="operation-lead-icon"><FaAws /></div><div><span>AMAZON WEB SERVICES</span><h2>Guarded AWS operations</h2><p>Preview, approve, execute and verify infrastructure changes from one controlled workspace.</p></div><div className="aws-lead-actions"><div className="operation-lead-state"><i />{inventory.length} managed resources</div><button onClick={refreshInventory} disabled={syncingInventory}><RefreshCw className={syncingInventory?"spin":""}/>{syncingInventory?"Synchronizing…":"Refresh inventory"}</button><button onClick={() => { sessionStorage.setItem("opsagent-chat-draft", "Provision a new AWS EC2 virtual machine."); onNavigate?.("OpsAgent chat"); }}><Sparkles /> Create new VM with agent</button></div></section>
@@ -2738,36 +2719,31 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
               )}
             </div>
             <div className="approval-box">
-              <span>Type the exact phrase to authorize this change</span>
-              <code>{expected}</code>
+              <span>Confirm your identity to authorize this change</span>
               <input
+                type="password"
                 value={confirmation}
                 onChange={(e) => setConfirmation(e.target.value)}
-                placeholder="Paste confirmation phrase"
+                placeholder="Enter your account password"
+                autoComplete="current-password"
               />
             </div>
             <button
               className="execute"
-              disabled={busy || !identifier || confirmation !== expected}
+              disabled={busy || !identifier || !confirmation}
             >
               {busy
                 ? "Executing approved operation…"
                 : "Review complete — execute operation"}
             </button>
             {busy && <section className="aws-execution-console" aria-live="polite"><header><div><span className="console-live"><i/>LIVE EXECUTION</span><strong>{actionLabel[action] || action.replaceAll("_"," ")}</strong><small>{identifier} · elapsed {elapsedSeconds}s</small></div><b>{Math.min(100,(progressStage+1)*20)}%</b></header><div className="aws-progress-track"><i style={{width:`${Math.min(100,(progressStage+1)*20)}%`}}/></div><div className="aws-execution-body"><div className="aws-stage-list">{[
-              ["Approval validated","Identity, RBAC and confirmation checked"], ["Request submitted","AWS API accepted the command"], ["State transition","Resource is changing state"], ["Live verification","Polling EC2 DescribeInstances"], ["Completed","Desired state verified"],
+              ["Identity verified","Password, identity and RBAC checked"], ["Request submitted","AWS API accepted the command"], ["State transition","Resource is changing state"], ["Live verification","Polling EC2 DescribeInstances"], ["Completed","Desired state verified"],
             ].map(([label,detail],index)=><div className={index<progressStage?"complete":index===progressStage?"active":"pending"} key={label}><i>{index<progressStage?<CheckCircle2/>:index+1}</i><span><b>{label}</b><small>{detail}</small></span>{index===progressStage&&<em>Running</em>}</div>)}</div><pre className="aws-command-log"><code><span>[{String(Math.min(elapsedSeconds,99)).padStart(2,"0")}:00]</span> opsagent.guard.validate --target {identifier}{"\n"}<span>[{String(Math.min(elapsedSeconds,99)).padStart(2,"0")}:01]</span> aws.ec2.{action} --request approved{progressStage>=1?`\n[${String(Math.min(elapsedSeconds,99)).padStart(2,"0")}:02] AWS request accepted; tracking resource state`:""}{progressStage>=2?`\n[${String(Math.min(elapsedSeconds,99)).padStart(2,"0")}:03] Transition detected for ${identifier}`:""}{progressStage>=3?`\n[${String(Math.min(elapsedSeconds,99)).padStart(2,"0")}:04] Polling DescribeInstances for final state…`:""}{progressStage>=4?`\n[${String(Math.min(elapsedSeconds,99)).padStart(2,"0")}:05] VERIFIED: requested state reached`:""}{"\n"}<b>▌</b></code></pre></div><footer><ShieldCheck/><span>Do not close this page. OpsAgent is verifying the final AWS state before reporting success.</span></footer></section>}
             {result && <p className="notice">{result}</p>}
           </form>
           </section>}
         </article>
       </section>
-      {audit && (
-        <>
-          <section className="aws-compliance-heading"><div className="aws-compliance-icon"><ShieldCheck/></div><div><span>GOVERNANCE & COMPLIANCE</span><h2>Change activity</h2><p>Evidence of who requested and approved each AWS change, what resource changed, and whether it succeeded.</p></div><div><b>{auditRows.length}</b><small>recorded changes</small></div></section>
-          <SimpleTable rows={auditRows} />
-        </>
-      )}
     </>
   );
 }
