@@ -273,6 +273,14 @@ class SettingsRequest(BaseModel):
     extensions: dict[str, bool] = Field(default_factory=dict)
 
 
+class AiConfigurationRequest(BaseModel):
+    mode: str = Field(pattern=r"^(platform|byok|self_hosted)$")
+    provider: str = Field(default="openai", pattern=r"^(openai|openai_compatible)$")
+    model: str = Field(min_length=1, max_length=160)
+    endpoint: str | None = Field(default=None, max_length=500)
+    api_key: SecretStr | None = None
+
+
 class OrganizationRequest(BaseModel):
     name: str
 
@@ -687,6 +695,7 @@ def send_chat(request: ChatRequest, _user=Depends(current_user)):
         answer = agent.answer_infrastructure_question(
             model_message, inventory_records=_records(_user["organization_id"]), conversation_history=history,
             requester=_user["username"], persona=request.persona, organization_id=_user["organization_id"],
+            model_configuration=credential_store.resolve_ai_configuration(_user["organization_id"]),
         )
     chat_store.append(request.session_id, "assistant", answer, _user["username"], _user["organization_id"])
     chat_store.set_persona(request.session_id, request.persona, _user["username"], _user["organization_id"])
@@ -1227,6 +1236,25 @@ def update_settings(request: SettingsRequest, _user=Depends(current_user)):
     values = request.model_dump()
     values["extensions"] = {key: bool(value) for key, value in request.extensions.items() if key in allowed_extensions}
     return settings_store.save(_user["username"], values)
+
+
+@app.get("/api/v1/settings/ai")
+def get_ai_configuration(_user=Depends(current_user)):
+    return credential_store.ai_configuration_status(_user["organization_id"])
+
+
+@app.put("/api/v1/settings/ai")
+def update_ai_configuration(request: AiConfigurationRequest, _user=Depends(require_permission(authorization.MANAGE_CONNECTORS))):
+    try:
+        return credential_store.save_ai_configuration(
+            _user["organization_id"], _user["username"], {
+                "mode": request.mode, "provider": request.provider, "model": request.model,
+                "endpoint": request.endpoint or "",
+                "api_key": request.api_key.get_secret_value() if request.api_key else "",
+            },
+        )
+    except (ValueError, credential_store.CredentialVaultUnavailable) as error:
+        raise HTTPException(422, str(error)) from error
 
 
 # In production the React build is copied into the API image. Mount it last so

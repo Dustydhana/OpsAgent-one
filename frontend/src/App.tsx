@@ -216,6 +216,14 @@ type Preferences = {
   operation_notifications: boolean;
   extensions: Record<string, boolean>;
 };
+type AiConfiguration = {
+  mode: "platform" | "byok" | "self_hosted";
+  provider: "openai" | "openai_compatible";
+  model: string;
+  endpoint: string;
+  api_key_configured: boolean;
+  ready: boolean;
+};
 type Recognition = {
   continuous: boolean;
   interimResults: boolean;
@@ -2211,7 +2219,14 @@ function Chat() {
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  e.currentTarget.form?.requestSubmit();
+                }
+              }}
               placeholder={listening ? "Listening… speak now" : "Ask anything"}
+              aria-label="Chat message"
               rows={1}
             />
             <button
@@ -2236,7 +2251,7 @@ function Chat() {
             >
               <AudioLines />
             </button>
-            <button className="send">
+            <button className="send" disabled={busy || (!text.trim() && !attachments.length)} title="Send message">
               <Send />
             </button>
           </div>
@@ -3590,11 +3605,15 @@ function SettingsCenter() {
   const [section, setSection] = useState("Appearance");
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
+  const [aiConfig, setAiConfig] = useState<AiConfiguration>({mode:"platform",provider:"openai",model:"gpt-4o-mini",endpoint:"",api_key_configured:false,ready:false});
+  const [aiKey, setAiKey] = useState("");
+  const [savingAi, setSavingAi] = useState(false);
   useEffect(() => {
     api<Preferences>("/settings").then((x) => {
       setSettings(x);
       applyPreferences(x);
     });
+    api<AiConfiguration>("/settings/ai").then(setAiConfig).catch((error)=>setStatus(error.message));
   }, []);
   if (!settings)
     return <div className="skeleton">Loading workspace settings…</div>;
@@ -3626,6 +3645,16 @@ function SettingsCenter() {
     } finally {
       setSaving(false);
     }
+  }
+  async function saveAiConfiguration() {
+    setSavingAi(true);setStatus("");
+    try {
+      const saved=await api<AiConfiguration>("/settings/ai",{method:"PUT",body:JSON.stringify({
+        mode:aiConfig.mode,provider:aiConfig.mode==="self_hosted"?"openai_compatible":"openai",
+        model:aiConfig.model,endpoint:aiConfig.endpoint||null,api_key:aiKey||null,
+      })});
+      setAiConfig(saved);setAiKey("");setStatus("AI configuration encrypted and activated for this organization");
+    } catch(error){setStatus((error as Error).message)} finally {setSavingAi(false)}
   }
   const extensions = [
     ["aws", "AWS", "EC2 inventory and guarded cloud operations"],
@@ -3733,44 +3762,25 @@ function SettingsCenter() {
             <div className="settings-heading">
               <div>
                 <h2>AI & models</h2>
-                <p>
-                  Select the preferred inference provider for your workspace.
-                </p>
+                <p>Choose platform billing, your own API key, or an OpenAI-compatible model endpoint.</p>
               </div>
               <Bot />
             </div>
-            <div className="settings-form">
-              <label>
-                Model provider
-                <select
-                  value={settings.model_provider}
-                  onChange={(e) => update({ model_provider: e.target.value })}
-                >
-                  <option value="openai">OpenAI</option>
-                  <option value="azure_openai">Azure OpenAI</option>
-                  <option value="bedrock">AWS Bedrock</option>
-                  <option value="ollama">Ollama</option>
-                  <option value="vllm">vLLM</option>
-                  <option value="rules">Rules only</option>
-                </select>
-              </label>
-              <label>
-                Approved model
-                <input
-                  value={settings.model_name}
-                  onChange={(e) => update({ model_name: e.target.value })}
-                  placeholder="Model deployment or identifier"
-                />
-              </label>
+            <div className="ai-mode-grid">
+              {[["platform","Pay as you go","Use the OpsAgent platform model connection and organization usage metering."],["byok","Use my API key","Encrypt your OpenAI API key; provider charges go directly to your account."],["self_hosted","Use my own model","Connect Ollama, vLLM, LocalAI, or another OpenAI-compatible HTTPS endpoint."]].map(([mode,title,description])=><button className={aiConfig.mode===mode?"selected":""} onClick={()=>setAiConfig({...aiConfig,mode:mode as AiConfiguration["mode"],provider:mode==="self_hosted"?"openai_compatible":"openai"})} key={mode}><Bot/><span><strong>{title}</strong><small>{description}</small></span>{aiConfig.mode===mode&&<CheckCircle2/>}</button>)}
             </div>
+            <div className="settings-form ai-config-form">
+              <label>Model name<input value={aiConfig.model} onChange={(e)=>setAiConfig({...aiConfig,model:e.target.value})} placeholder="gpt-4o-mini or your deployment name"/></label>
+              {aiConfig.mode==="self_hosted"&&<label>OpenAI-compatible endpoint<input type="url" value={aiConfig.endpoint} onChange={(e)=>setAiConfig({...aiConfig,endpoint:e.target.value})} placeholder="https://models.company.com/v1"/></label>}
+              {aiConfig.mode!=="platform"&&<label>API key {aiConfig.api_key_configured&&<small>Existing encrypted key is configured</small>}<input type="password" value={aiKey} onChange={(e)=>setAiKey(e.target.value)} placeholder={aiConfig.mode==="self_hosted"?"Optional if endpoint does not require a key":"sk-…"} autoComplete="new-password"/></label>}
+            </div>
+            <div className={`ai-config-status ${aiConfig.ready?"ready":"attention"}`}><span><b>{aiConfig.ready?"Ready":"Setup required"}</b><small>{aiConfig.mode==="platform"&&!aiConfig.ready?"The platform administrator must enable pay-as-you-go billing and a model credential.":aiConfig.ready?`${aiConfig.model} is available for organization chat.`:"Complete the required fields and save."}</small></span><button onClick={saveAiConfiguration} disabled={savingAi||!aiConfig.model||aiConfig.mode==="byok"&&!aiKey&&!aiConfig.api_key_configured||aiConfig.mode==="self_hosted"&&!aiConfig.endpoint}>{savingAi?"Saving…":"Save AI configuration"}</button></div>
             <div className="settings-callout">
               <ShieldCheck />
               <div>
                 <strong>Credentials remain server-side</strong>
                 <p>
-                  API keys and provider endpoints must be configured in the
-                  backend secret store. They are never saved in browser
-                  preferences.
+                  API keys are encrypted in the organization credential vault and are never returned to the browser.
                 </p>
               </div>
             </div>

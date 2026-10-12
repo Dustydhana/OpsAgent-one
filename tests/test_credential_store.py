@@ -71,3 +71,15 @@ def test_gmail_validates_email_allowlists():
         assert False, "expected invalid sender"
     except ValueError as error:
         assert "Request Senders" in str(error)
+
+
+def test_ai_configuration_status_never_returns_the_api_key(monkeypatch):
+    monkeypatch.setattr(credential_store, "resolve_ai_configuration", lambda _organization_id: {
+        "mode": "byok", "provider": "openai", "model": "gpt-test", "api_key": "secret-key",
+    })
+
+    status = credential_store.ai_configuration_status("org-a")
+
+    assert status["ready"] is True
+    assert status["api_key_configured"] is True
+    assert "api_key" not in status

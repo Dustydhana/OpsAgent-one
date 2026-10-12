@@ -169,6 +169,69 @@ def resolve_latest_provider(provider: str) -> tuple[str, dict[str, str]] | None:
     return organization_id, decrypt_payload(organization_id, row[1])
 
 
+def save_ai_configuration(organization_id: str, actor: str, values: dict[str, str]):
+    """Create or replace the organization-scoped encrypted model configuration."""
+    mode = str(values.get("mode") or "platform").strip()
+    if mode not in {"platform", "byok", "self_hosted"}:
+        raise ValueError("Unsupported AI billing mode")
+    model = str(values.get("model") or "gpt-4o-mini").strip()
+    endpoint = str(values.get("endpoint") or "").strip()
+    api_key = str(values.get("api_key") or "").strip()
+    current = resolve_provider(organization_id, "ai_model") or {}
+    if mode != "platform" and not api_key and current.get("mode") == mode:
+        api_key = str(current.get("api_key") or "").strip()
+    if mode != "self_hosted":
+        endpoint = ""
+    if not model:
+        raise ValueError("Model name is required")
+    if mode == "byok" and not api_key:
+        raise ValueError("An API key is required for bring-your-own-key mode")
+    if mode == "self_hosted" and not endpoint:
+        raise ValueError("An OpenAI-compatible endpoint is required for self-hosted mode")
+    if endpoint and not endpoint.lower().startswith(("https://", "http://localhost", "http://127.0.0.1")):
+        raise ValueError("Model endpoint must use HTTPS (localhost is allowed for development)")
+    payload = {"mode": mode, "provider": str(values.get("provider") or "openai"), "model": model}
+    if endpoint:
+        payload["endpoint"] = endpoint.rstrip("/")
+    if api_key:
+        payload["api_key"] = api_key
+    encrypted = encrypt_payload(organization_id, payload)
+    credential_id = f"cred_{uuid.uuid4().hex}"
+    with database.connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("""UPDATE ops_agent.connector_credentials SET status='disabled',updated_at=NOW()
+                WHERE organization_id=%s AND provider='ai_model' AND status='active'""", (organization_id,))
+            cursor.execute("""INSERT INTO ops_agent.connector_credentials
+                (credential_id,organization_id,provider,name,encrypted_payload,metadata,created_by)
+                VALUES (%s,%s,'ai_model',%s,%s,%s::jsonb,%s)""",
+                (credential_id, organization_id, f"{mode}:{model}", encrypted,
+                 json.dumps({"mode": mode, "provider": payload["provider"], "model": model,
+                             "endpoint_configured": bool(endpoint), "api_key_configured": bool(api_key)}), actor))
+            cursor.execute("""INSERT INTO ops_agent.organization_audit
+                (organization_id,actor,action,target,details) VALUES
+                (%s,%s,'ai_configuration_updated',%s,%s::jsonb)""",
+                (organization_id, actor, credential_id,
+                 json.dumps({"mode": mode, "provider": payload["provider"], "model": model})))
+        connection.commit()
+    return ai_configuration_status(organization_id)
+
+
+def resolve_ai_configuration(organization_id: str) -> dict[str, str]:
+    return resolve_provider(organization_id, "ai_model") or {
+        "mode": "platform", "provider": "openai", "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    }
+
+
+def ai_configuration_status(organization_id: str) -> dict:
+    payload = resolve_ai_configuration(organization_id)
+    mode = payload.get("mode", "platform")
+    key_configured = bool(payload.get("api_key")) if mode != "platform" else bool(os.getenv("OPENAI_API_KEY"))
+    return {"mode": mode, "provider": payload.get("provider", "openai"),
+            "model": payload.get("model", "gpt-4o-mini"), "endpoint": payload.get("endpoint", ""),
+            "api_key_configured": key_configured,
+            "ready": bool(key_configured or (mode == "self_hosted" and payload.get("endpoint")))}
+
+
 def update_provider_fields(organization_id: str, actor: str, provider: str, updates: dict[str, str]):
     """Update selected fields without returning or replacing stored secrets."""
     clean = {str(key): str(value).strip() for key, value in updates.items() if str(value).strip()}

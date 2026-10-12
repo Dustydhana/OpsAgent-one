@@ -305,7 +305,7 @@ def answer_investigation_question(result, question, alert_text="Manual dashboard
         )
 
 
-def answer_infrastructure_question(question, inventory_records=None, conversation_history=None, requester="unknown", persona="Senior Infrastructure Architect", organization_id=None):
+def answer_infrastructure_question(question, inventory_records=None, conversation_history=None, requester="unknown", persona="Senior Infrastructure Architect", organization_id=None, model_configuration=None):
     """Answer general infrastructure questions as a senior cross-platform architect."""
     if not question or not question.strip():
         return "How can I help with your infrastructure?"
@@ -343,12 +343,15 @@ def answer_infrastructure_question(question, inventory_records=None, conversatio
         "role": "user",
         "content": f"Current canonical server inventory (no credentials):\n{json.dumps(inventory, default=str)[:16000]}\n\nQuestion: {question}",
     })
-    if not config.OPENAI_API_KEY:
+    selected = model_configuration or {}
+    selected_key = selected.get("api_key") or config.OPENAI_API_KEY
+    selected_endpoint = selected.get("endpoint") or None
+    if not selected_key and not selected_endpoint:
         return _offline_infrastructure_answer(question, inventory_records)
     try:
-        client = OpenAI(api_key=config.OPENAI_API_KEY)
+        client = OpenAI(api_key=selected_key or "self-hosted", base_url=selected_endpoint)
         response = client.chat.completions.create(
-            model=config.OPENAI_MODEL, messages=messages, temperature=0.25,
+            model=selected.get("model") or config.OPENAI_MODEL, messages=messages, temperature=0.25,
         )
         ai_usage.record(response,requester=requester,activity="infrastructure_chat",request_text=question,organization_id=organization_id)
         return (response.choices[0].message.content or "").strip() or "I couldn't generate an answer."
