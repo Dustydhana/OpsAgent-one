@@ -4,7 +4,7 @@
 .aws-state-summary i.running { background: #25c27d; box-shadow: 0 0 0 3px #25c27d1f; }
 .aws-state-summary i.stopped { background: #ef6675; box-shadow: 0 0 0 3px #ef66751f; }
 
-.aws-vm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 14px; margin-top: 20px; }
+.aws-vm-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 20px; }
 .aws-vm-card { min-width: 0; overflow: hidden; background: #0d141d; border: 1px solid #2b3948; border-radius: 11px; transition: border-color .15s, box-shadow .15s, transform .15s; cursor: pointer; }
 .aws-vm-card:hover { border-color: #52677c; transform: translateY(-1px); }
 .aws-vm-card.selected { border-color: #4c70e8; box-shadow: 0 0 0 2px #4c70e81f; }
@@ -22,7 +22,7 @@
 .vm-power-state.pending,.vm-power-state.stopping,.vm-power-state.shutting-down { color: #e8af51; background: #2b2112; }
 .vm-power-state.pending i,.vm-power-state.stopping i,.vm-power-state.shutting-down i { background: #e8af51; }
 
-.aws-vm-card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 13px 18px; margin: 0; padding: 15px 16px; }
+.aws-vm-card dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px 18px; margin: 0; padding: 15px 16px; }
 .aws-vm-card dl > div { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .aws-vm-card dt { color: #6f7d8f; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .aws-vm-card dd { overflow: hidden; margin: 0; color: #c7d0db; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
@@ -71,6 +71,7 @@
 @media (max-width: 820px) {
   .aws-command .panel-title { align-items: flex-start; flex-direction: column; }
   .aws-vm-grid { grid-template-columns: 1fr; }
+  .aws-vm-card dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 540px) {

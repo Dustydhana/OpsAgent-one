@@ -2654,6 +2654,7 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
   const actionLabel: Record<string, string> = {
     start_instance: "Start VM", stop_instance: "Stop VM", reboot_instance: "Reboot VM",
     resize_instance: "Resize VM", create_snapshot: "Create snapshot", terminate_instance: "Terminate VM",
+    detach_secondary_nic: "Detach secondary NIC",
     extend_volume: "Extend EBS volume", delete_volume: "Delete EBS volume", delete_snapshot: "Delete snapshot",
   };
   const runningCount = inventory.filter((server) => String(server.status).toLowerCase() === "running").length;
@@ -2669,7 +2670,7 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
               <p className="eyebrow">LIVE EC2 INVENTORY</p>
               <h3>Virtual machines</h3>
             </div>
-            <div className="aws-state-summary"><span><i className="running"/>{runningCount} Running</span><span><i className="stopped"/>{stoppedCount} Stopped</span><span>{inventory.length} Total</span></div>
+            <div className="aws-state-summary"><span><i className="running"/>{runningCount} Running</span><span><i className="stopped"/>{stoppedCount} Stopped</span><span>{inventory.length} Total</span><span>10 operations available</span></div>
           </div>
           {inventory.length ? <div className="aws-vm-grid">
             {inventory.map((server) => {
@@ -2680,8 +2681,10 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
                 <header><span className={`target-os-icon ${os}`}>{os==="windows"?<FaWindows/>:os==="linux"?<SiLinux/>:<Server/>}</span><div><strong>{server.server_name || "Unnamed VM"}</strong><code>{server.aws_instance_id}</code></div><span className={`vm-power-state ${state}`}><i/>{state}</span></header>
                 <dl><div><dt>Type</dt><dd>{server.instance_type || "—"}</dd></div><div><dt>Region / zone</dt><dd>{server.availability_zone || server.aws_region || "—"}</dd></div><div><dt>Private IP</dt><dd>{server.private_ip_address || server.ip_address || "—"}</dd></div><div><dt>Environment</dt><dd>{server.environment || "—"}</dd></div></dl>
                 <footer onClick={(event)=>event.stopPropagation()}>
-                  {state==="running"?<><button className="power stop" onClick={()=>chooseOperation("stop_instance",server.aws_instance_id)}>Stop</button><button onClick={()=>chooseOperation("reboot_instance",server.aws_instance_id)}>Reboot</button></>:<button className="power start" disabled={state!=="stopped"} onClick={()=>chooseOperation("start_instance",server.aws_instance_id)}>Start</button>}
-                  <button onClick={()=>chooseOperation("resize_instance",server.aws_instance_id)}>Resize</button><button onClick={()=>chooseOperation("create_snapshot",server.aws_instance_id)}>Snapshot</button><button className="danger" onClick={()=>chooseOperation("terminate_instance",server.aws_instance_id)}>Terminate</button>
+                  <button className="power start" disabled={state!=="stopped"} onClick={()=>chooseOperation("start_instance",server.aws_instance_id)}>Start</button>
+                  <button className="power stop" disabled={state!=="running"} onClick={()=>chooseOperation("stop_instance",server.aws_instance_id)}>Stop</button>
+                  <button disabled={state!=="running"} onClick={()=>chooseOperation("reboot_instance",server.aws_instance_id)}>Reboot</button>
+                  <button onClick={()=>chooseOperation("resize_instance",server.aws_instance_id)}>Resize</button><button onClick={()=>chooseOperation("create_snapshot",server.aws_instance_id)}>Snapshot</button><button onClick={()=>chooseOperation("detach_secondary_nic",server.aws_instance_id)}>Detach NIC</button><button className="danger" onClick={()=>chooseOperation("terminate_instance",server.aws_instance_id)}>Terminate</button>
                 </footer>
               </article>;
             })}
