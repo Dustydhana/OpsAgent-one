@@ -2279,7 +2279,7 @@ function Chat() {
 
 function AwsOperations({ servers }: { servers: Machine[] }) {
   const [action, setAction] = useState("");
-  const [target, setTarget] = useState(servers[0]?.aws_instance_id || "");
+  const [target, setTarget] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [result, setResult] = useState("");
   const [busy, setBusy] = useState(false);
@@ -2546,7 +2546,7 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
   const [busy, setBusy] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [progressStage, setProgressStage] = useState(0);
-  useEffect(() => { setInventory(servers); if (!target && servers[0]?.aws_instance_id) setTarget(servers[0].aws_instance_id); }, [servers, target]);
+  useEffect(() => { setInventory(servers); }, [servers]);
   async function refreshInventory() {
     setSyncingInventory(true);
     setInventoryMessage("");
@@ -2555,7 +2555,6 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
       const records = await api<Machine[]>("/inventory/servers");
       const awsRecords = records.filter((item) => item.vm_type === "aws" && item.enabled !== false && item.status !== "terminated");
       setInventory(awsRecords);
-      if (!target && awsRecords[0]?.aws_instance_id) setTarget(awsRecords[0].aws_instance_id);
       setInventoryMessage(result.synchronized ? `${result.synchronized} AWS resource(s) synchronized.` : "Connection succeeded, but no EC2 instances were found in the configured region.");
     } catch (error) { setInventoryMessage((error as Error).message); }
     finally { setSyncingInventory(false); }
@@ -2672,21 +2671,9 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
             </div>
             <div className="aws-state-summary"><span><i className="running"/>{runningCount} Running</span><span><i className="stopped"/>{stoppedCount} Stopped</span><span>{inventory.length} Total</span><span>10 operations available</span></div>
           </div>
-          {inventory.length ? <div className="aws-vm-grid">
-            {inventory.map((server) => {
-              const state = String(server.status || "unknown").toLowerCase();
-              const os = optionOs(server).toLowerCase();
-              const isSelected = Boolean(action) && target === server.aws_instance_id;
-              return <article className={`aws-vm-card ${isSelected?"selected":""}`} key={server.aws_instance_id} onClick={()=>setTarget(server.aws_instance_id)}>
-                <header><span className={`target-os-icon ${os}`}>{os==="windows"?<FaWindows/>:os==="linux"?<SiLinux/>:<Server/>}</span><div><strong>{server.server_name || "Unnamed VM"}</strong><code>{server.aws_instance_id}</code></div><span className={`vm-power-state ${state}`}><i/>{state}</span></header>
-                <dl><div><dt>Type</dt><dd>{server.instance_type || "—"}</dd></div><div><dt>Region / zone</dt><dd>{server.availability_zone || server.aws_region || "—"}</dd></div><div><dt>Private IP</dt><dd>{server.private_ip_address || server.ip_address || "—"}</dd></div><div><dt>Environment</dt><dd>{server.environment || "—"}</dd></div></dl>
-                <footer onClick={(event)=>event.stopPropagation()}>
-                  <div className="vm-action-group"><span>Power</span><div><button className="power start" disabled={state!=="stopped"} onClick={()=>chooseOperation("start_instance",server.aws_instance_id)}>Start</button><button className="power stop" disabled={state!=="running"} onClick={()=>chooseOperation("stop_instance",server.aws_instance_id)}>Stop</button><button disabled={state!=="running"} onClick={()=>chooseOperation("reboot_instance",server.aws_instance_id)}>Reboot</button></div></div>
-                  <div className="vm-action-group"><span>Manage</span><div><button onClick={()=>chooseOperation("resize_instance",server.aws_instance_id)}>Resize</button><button onClick={()=>chooseOperation("create_snapshot",server.aws_instance_id)}>Snapshot</button><button onClick={()=>chooseOperation("detach_secondary_nic",server.aws_instance_id)}>Detach NIC</button></div></div>
-                  <div className="vm-action-group danger-group"><span>Destructive</span><div><button className="danger" onClick={()=>chooseOperation("terminate_instance",server.aws_instance_id)}>Terminate</button></div></div>
-                </footer>
-              </article>;
-            })}
+          {inventory.length ? <div className="aws-instance-console">
+            <div className="aws-table-toolbar"><div><b>Instances ({inventory.length})</b><span>{selected?`${selected.server_name} selected`:"Select one instance to manage"}</span></div><div className="aws-toolbar-actions"><button className="start" disabled={!selected||String(selected.status).toLowerCase()!=="stopped"} onClick={()=>chooseOperation("start_instance",target)}>Start</button><button className="stop" disabled={!selected||String(selected.status).toLowerCase()!=="running"} onClick={()=>chooseOperation("stop_instance",target)}>Stop</button><button disabled={!selected||String(selected.status).toLowerCase()!=="running"} onClick={()=>chooseOperation("reboot_instance",target)}>Reboot</button><button disabled={!selected} onClick={()=>chooseOperation("resize_instance",target)}>Resize</button><button disabled={!selected} onClick={()=>chooseOperation("create_snapshot",target)}>Snapshot</button><button disabled={!selected} onClick={()=>chooseOperation("detach_secondary_nic",target)}>Detach NIC</button><button className="danger" disabled={!selected} onClick={()=>chooseOperation("terminate_instance",target)}>Terminate</button></div></div>
+            <div className="aws-instance-table-wrap"><table className="aws-instance-table"><thead><tr><th aria-label="Select instance"/><th>Name</th><th>Instance ID</th><th>Instance state</th><th>Instance type</th><th>Status check</th><th>Availability Zone</th><th>Public IPv4 DNS</th><th>Public IPv4</th><th>Elastic IP</th><th>Private IPv4</th><th>Monitoring</th><th>Environment</th></tr></thead><tbody>{inventory.map((server)=>{const state=String(server.status||"unknown").toLowerCase();return <tr className={target===server.aws_instance_id?"selected":""} key={server.aws_instance_id} onClick={()=>{setTarget(server.aws_instance_id);setAction("");setConfirmation("");}}><td><input type="radio" name="aws-instance" checked={target===server.aws_instance_id} onChange={()=>setTarget(server.aws_instance_id)} aria-label={`Select ${server.server_name}`}/></td><td><span className="aws-table-name"><i className={optionOs(server).toLowerCase()}>{optionOs(server).toLowerCase()==="windows"?<FaWindows/>:<SiLinux/>}</i><b>{server.server_name||"Unnamed VM"}</b></span></td><td><code>{server.aws_instance_id}</code></td><td><span className={`vm-power-state ${state}`}><i/>{state}</span></td><td>{server.instance_type||"—"}</td><td>—</td><td>{server.availability_zone||"—"}</td><td title={server.public_dns_name||""}>{server.public_dns_name||"—"}</td><td>{server.public_ip_address||"—"}</td><td>—</td><td>{server.private_ip_address||server.ip_address||"—"}</td><td>{server.monitoring_service||"disabled"}</td><td>{server.environment||"—"}</td></tr>})}</tbody></table></div>
           </div>:<div className="aws-vm-empty"><Server/><h3>No EC2 virtual machines found</h3><p>Refresh inventory or verify the connected AWS account and region.</p></div>}
           <div className="aws-storage-tools"><span>Storage operations</span><button onClick={()=>chooseOperation("extend_volume")}>Extend volume</button><button onClick={()=>chooseOperation("delete_volume")}>Delete volume</button><button onClick={()=>chooseOperation("delete_snapshot")}>Delete snapshot</button></div>
           {action && <section className="aws-operation-review">
