@@ -1004,6 +1004,22 @@ function Dashboard({
   const operationFailed = operations?.summary.failed;
   const outstandingAlerts = slack?.outstanding;
   const connectorProblems = health.filter((item) => item.Status !== "Healthy");
+  const connectorState = (patterns: RegExp[], assetPattern?: RegExp) => {
+    const match = health.find((item) => patterns.some((pattern) => pattern.test(`${item.Component} ${item.Details || ""}`)));
+    if (match) return match.Status === "Healthy" ? "Connected" : "Attention";
+    if (assetPattern && servers.some((server) => assetPattern.test(`${server.vm_type} ${server.server_name}`))) return "Connected";
+    return "Not configured";
+  };
+  const platformConnections = [
+    ["AWS", awsDashboard?.connected ? "Connected" : connectorState([/aws/i], /aws/i)],
+    ["Slack", connectorState([/slack/i])],
+    ["Gmail / Outlook", connectorState([/gmail|email|outlook/i])],
+    ["Microsoft Azure", connectorState([/azure/i], /azure/i)],
+    ["Google Cloud", connectorState([/google cloud|gcp/i], /google cloud|gcp/i)],
+    ["Oracle Cloud", connectorState([/oracle cloud|oci/i], /oracle cloud|oci/i)],
+    ["VMware", connectorState([/vmware|vsphere/i], /vmware|vsphere|esxi/i)],
+    ["SCCM", connectorState([/sccm/i])],
+  ];
   const grafanaHealth = health.find((item) => /grafana/i.test(item.Component));
   const monitored = Math.max(0, servers.length - unmonitored);
   const monitoringCoverage = servers.length ? Math.round(monitored / servers.length * 100) : 0;
@@ -1115,6 +1131,7 @@ function Dashboard({
       <section className="dashboard-aws-widgets">
         <article className="dashboard-aws-card cost"><header><div><span>AWS BILLING</span><h3>Cost and usage</h3></div><button onClick={() => onNavigate?.("AI usage & cost")}>View details <ChevronRight/></button></header>{awsDashboard?.cost.available ? <div className="aws-cost-content"><div><small>Month to date</small><strong>{new Intl.NumberFormat("en-US", {style:"currency", currency:awsDashboard.cost.currency || "USD"}).format(awsDashboard.cost.month_to_date || 0)}</strong><span>Live Cost Explorer total</span></div><div className="aws-cost-bars">{(awsDashboard.cost.daily || []).slice(-14).map((item) => { const max = Math.max(0.01, ...(awsDashboard.cost.daily || []).slice(-14).map((day) => day.amount)); return <i key={item.date} style={{height:`${Math.max(4,item.amount/max*100)}%`}} title={`${item.date}: ${item.amount}`}/>; })}</div></div> : <div className="aws-widget-empty"><Database/><div><strong>Cost data unavailable</strong><span>{awsDashboard?.cost.message || "Loading AWS Cost Explorer…"}</span></div><button onClick={() => onNavigate?.("Connections")}>Configure AWS</button></div>}</article>
         <article className="dashboard-aws-card health"><header><div><span>ACCOUNT STATUS</span><h3>AWS Health</h3></div><button onClick={() => onNavigate?.("AWS operations")}>Open AWS <ChevronRight/></button></header>{awsDashboard?.health.available ? <div className="aws-health-content"><div><small>Open issues</small><strong className={(awsDashboard.health.open_issues || 0) > 0 ? "warning" : "healthy"}>{awsDashboard.health.open_issues || 0}</strong></div><div><small>Scheduled changes</small><strong>{awsDashboard.health.scheduled_changes || 0}</strong></div>{(awsDashboard.health.events || []).slice(0,2).map((event,index)=><p key={`${event.type}-${index}`}><i/><span><b>{event.service}</b>{event.type.replaceAll("_"," ")}</span><small>{event.region}</small></p>)}</div> : <div className="aws-widget-empty"><Activity/><div><strong>Health data unavailable</strong><span>{awsDashboard?.health.message || "Loading AWS Health…"}</span></div><button onClick={() => onNavigate?.("Connections")}>Check connection</button></div>}</article>
+        <article className="dashboard-aws-card platforms"><header><div><span>INTEGRATIONS</span><h3>Connected platforms</h3></div><button onClick={() => onNavigate?.("Connections")}>Manage <ChevronRight/></button></header><div className="dashboard-platform-list">{platformConnections.map(([name,status]) => <button key={name} onClick={() => onNavigate?.("Connections")}><i className={status === "Connected" ? "connected" : status === "Attention" ? "attention" : ""}/><span>{name}</span><small>{status}</small><ChevronRight/></button>)}</div></article>
       </section>
 
       <section className="command-kpis">
