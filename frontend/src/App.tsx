@@ -645,7 +645,7 @@ function Login({ onLogin }: { onLogin: (user: User) => void }) {
   );
 }
 
-const STANDARD_BANNER_PAGES = new Set(["OpsAgent chat","Connections","Server inventory","Decommission inventory","Hardware inventory","Azure operations","VMware operations","Windows operations","Linux operations","SCCM operations","Account & access","Settings","Agent health","Live logs"]);
+const STANDARD_BANNER_PAGES = new Set(["OpsAgent chat","Connections","Server inventory","Decommission inventory","Hardware inventory","Azure operations","VMware operations","Windows operations","Linux operations","SCCM operations","Settings","Agent health","Live logs"]);
 const STANDARD_BANNER_COPY: Record<string,string> = {
   "OpsAgent chat":"Ask questions, investigate infrastructure and prepare governed operations.",
   "Connections":"Connect and manage the platforms that power your operations.",
@@ -686,6 +686,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [dataConnectionIssue, setDataConnectionIssue] = useState("");
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const navigatePage = (page: string, replace = false) => {
     setActive(page);
     const path = pathForPage(page);
@@ -829,9 +830,10 @@ function App() {
             <button className="bell" onClick={() => navigatePage("Slack alerts")} title="Open operational alerts">
               <Bell />
             </button>
-            <button className="top-profile top-account" onClick={() => navigatePage("Account & access")} title="Account and access">
+            <button className="top-profile top-account" onClick={() => setAccountMenuOpen((open) => !open)} title="Open account menu" aria-expanded={accountMenuOpen}>
               <i>{user.display_name.slice(0, 2).toUpperCase()}</i><span><strong>{user.display_name}</strong><small>{displayRole(user.organization_role || user.role)}</small></span><ChevronDown/>
             </button>
+            {accountMenuOpen && <div className="top-account-menu"><header><i>{user.display_name.slice(0,2).toUpperCase()}</i><span><strong>{user.display_name}</strong><small>{user.username}</small></span></header><button onClick={() => { navigatePage("Account & access"); setAccountMenuOpen(false); }}><Users/><span><b>Account & access</b><small>Identity, users and security</small></span></button><button onClick={() => { navigatePage("Settings"); setAccountMenuOpen(false); }}><SettingsIcon/><span><b>Settings</b><small>Workspace preferences</small></span></button><button className="sign-out" onClick={() => { setAccountMenuOpen(false); setLogoutConfirmOpen(true); }}><LogOut/><span><b>Sign out</b><small>End this secure session</small></span></button></div>}
           </div>
         </div>
         {dataConnectionIssue && <div className="data-connection-banner" role="status"><AlertTriangle/><span>{dataConnectionIssue}</span><button onClick={() => window.location.reload()}>Retry now</button></div>}
@@ -2966,6 +2968,8 @@ function Account({ user }: { user: User }) {
         method: "POST",
         body: JSON.stringify({ current_password: current, new_password: next }),
       });
+      setCurrent("");
+      setNext("");
       setMessage("Password updated successfully");
     } catch (e) {
       setMessage((e as Error).message);
@@ -3027,8 +3031,10 @@ function Account({ user }: { user: User }) {
                 Create a local account that can sign in immediately.
               </p>
             </div>
-            <form onSubmit={createAccount}>
+            <form onSubmit={createAccount} autoComplete="off">
               <input
+                name="new-organization-username"
+                autoComplete="off"
                 required
                 minLength={3}
                 maxLength={64}
@@ -3037,6 +3043,8 @@ function Account({ user }: { user: User }) {
                 placeholder="Username"
               />
               <input
+                name="new-organization-display-name"
+                autoComplete="off"
                 required
                 maxLength={120}
                 value={newDisplayName}
@@ -3045,6 +3053,8 @@ function Account({ user }: { user: User }) {
               />
               <input
                 type="password"
+                name="new-organization-password"
+                autoComplete="new-password"
                 required
                 minLength={12}
                 maxLength={256}
