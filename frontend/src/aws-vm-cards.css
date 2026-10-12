@@ -129,6 +129,32 @@
 .aws-execution-console > footer svg { width: 14px; color: #4ed49a; }
 @keyframes aws-live-pulse { 50% { opacity: .45; } }
 @keyframes aws-cursor { 50% { opacity: 0; } }
+.aws-simple-progress { margin-top: 4px; padding: 16px; background: #101923; border: 1px solid #2c3d4f; border-radius: 9px; }
+.aws-simple-progress > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.aws-simple-progress > header > div { display: flex; align-items: center; gap: 10px; }
+.aws-simple-progress > header svg { width: 22px; color: #47cd94; }
+.aws-simple-progress > header span { display: flex; flex-direction: column; gap: 3px; }
+.aws-simple-progress > header strong { font-size: 13px; }
+.aws-simple-progress > header small { color: #7e8da0; font-size: 10px; }
+.aws-simple-progress > header > b { color: #47cd94; font-size: 15px; }
+.aws-simple-track { height: 5px; margin: 14px 0 16px; overflow: hidden; background: #253342; border-radius: 5px; }
+.aws-simple-track i { display: block; height: 100%; background: #47b881; border-radius: inherit; transition: width .3s ease; }
+.aws-simple-progress ol { display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.aws-simple-progress li { display: flex; align-items: center; gap: 7px; color: #66778a; font-size: 9px; }
+.aws-simple-progress li > i { width: 20px; height: 20px; flex: 0 0 auto; display: grid; place-items: center; background: #1a2734; border-radius: 50%; font-style: normal; }
+.aws-simple-progress li svg { width: 12px; }
+.aws-simple-progress li.active { color: #fff; font-weight: 700; }
+.aws-simple-progress li.active > i { color: #fff; background: #3e67dc; }
+.aws-simple-progress li.complete { color: #47cd94; }
+.aws-simple-progress li.complete > i { color: #082017; background: #47cd94; }
+.aws-simple-progress > footer { margin-top: 14px; padding-top: 11px; color: #7e8da0; border-top: 1px solid #2b3a4a; font-size: 10px; }
+:root[data-theme="light"] .aws-simple-progress { color: #172033; background: #f8fafc; border-color: #d5dee8; }
+:root[data-theme="light"] .aws-simple-track { background: #e2e7ee; }
+:root[data-theme="light"] .aws-simple-progress li > i { background: #e5eaf0; }
+:root[data-theme="light"] .aws-simple-progress li.active { color: #1f3d88; }
+:root[data-theme="light"] .aws-simple-progress li.active > i { color: #fff; background: #4265d8; }
+:root[data-theme="light"] .aws-simple-progress li.complete > i { color: #fff; background: #249d6d; }
+:root[data-theme="light"] .aws-simple-progress > footer { border-color: #dce3eb; }
 
 :root[data-theme="light"] .aws-state-summary span { color: #586779; background: #f7f9fc; border-color: #d8e0e9; }
 :root[data-theme="light"] .aws-instance-console { background: #fff; border-color: #cfd8e3; }
@@ -178,6 +204,7 @@
   .aws-compliance-heading > div:last-child { grid-column: 2; align-items: flex-start; }
   .aws-execution-body { grid-template-columns: 1fr; }
   .aws-stage-list { border-right: 0; border-bottom: 1px solid #26394b; }
+  .aws-simple-progress ol { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 540px) {
