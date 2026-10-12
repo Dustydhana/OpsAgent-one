@@ -822,16 +822,6 @@ function App() {
           </div>
         </div>
         {dataConnectionIssue && <div className="data-connection-banner" role="status"><AlertTriangle/><span>{dataConnectionIssue}</span><button onClick={() => window.location.reload()}>Retry now</button></div>}
-        {!(["AWS operations", "Agent orchestration", "OpsAgent chat"].includes(active)) && <header className="workspace-heading">
-          <div>
-            <p className="eyebrow">OPERATIONS CENTER</p>
-            <h1>{active}</h1>
-            <p className="workspace-description">
-              Monitor, investigate and safely operate your hybrid
-              infrastructure.
-            </p>
-          </div>
-        </header>}
         <Workspace
           active={active}
           summary={summary}
