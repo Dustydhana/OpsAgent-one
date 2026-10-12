@@ -90,6 +90,12 @@ def client_for_credentials(credentials=None, region=None):
     return _session(credentials).client("ec2", region_name=selected_region)
 
 
+def service_client_for_credentials(service, credentials=None, region=None):
+    """Create an organization-scoped read client for an AWS service."""
+    selected_region = region or (credentials or {}).get("region") or config.AWS_REGION
+    return _session(credentials).client(service, region_name=selected_region)
+
+
 def connection_status(credentials=None):
     """Validate the configured credential chain without returning secrets."""
     credentials = credentials or {}

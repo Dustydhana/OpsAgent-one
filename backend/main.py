@@ -1,6 +1,7 @@
 """FastAPI control plane over the existing operational Python services."""
 import os
 import threading
+from datetime import date, timedelta
 from pathlib import Path
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -727,6 +728,59 @@ def approve_chat_termination(request_id: str, request: TerminationApprovalReques
 def aws_audit(hours: int = 168, _user=Depends(current_user)):
     org = _user["organization_id"]
     return {"summary": aws.audit_summary(hours, org), "events": aws.audit_recent(hours, 250, org)}
+
+
+@app.get("/api/v1/operations/aws/dashboard")
+def aws_dashboard(_user=Depends(current_user)):
+    """Return live AWS billing and Health summaries without inventing unavailable data."""
+    credentials = credential_store.resolve_provider(_user["organization_id"], "aws")
+    if not credentials:
+        return {
+            "connected": False,
+            "cost": {"available": False, "message": "Connect AWS to load Cost Explorer data."},
+            "health": {"available": False, "message": "Connect AWS to load account health events."},
+        }
+    result = {"connected": True}
+    today = date.today()
+    month_start = today.replace(day=1)
+    try:
+        cost_client = aws.service_client_for_credentials("ce", credentials, "us-east-1")
+        response = cost_client.get_cost_and_usage(
+            TimePeriod={"Start": month_start.isoformat(), "End": (today + timedelta(days=1)).isoformat()},
+            Granularity="DAILY",
+            Metrics=["UnblendedCost"],
+        )
+        daily = []
+        total = 0.0
+        currency = "USD"
+        for period in response.get("ResultsByTime", []):
+            metric = period.get("Total", {}).get("UnblendedCost", {})
+            amount = float(metric.get("Amount") or 0)
+            currency = metric.get("Unit") or currency
+            total += amount
+            daily.append({"date": period.get("TimePeriod", {}).get("Start"), "amount": round(amount, 4)})
+        result["cost"] = {"available": True, "month_to_date": round(total, 2), "currency": currency, "daily": daily}
+    except Exception as error:
+        result["cost"] = {"available": False, "message": "Cost Explorer permission is required.", "detail": type(error).__name__}
+    try:
+        health_client = aws.service_client_for_credentials("health", credentials, "us-east-1")
+        response = health_client.describe_events(filter={"eventStatusCodes": ["open", "upcoming"]}, maxResults=20)
+        events = [{
+            "service": item.get("service") or "AWS",
+            "region": item.get("region") or "Global",
+            "status": item.get("statusCode") or "open",
+            "type": item.get("eventTypeCode") or "AWS health event",
+            "start_time": item.get("startTime").isoformat() if item.get("startTime") else None,
+        } for item in response.get("events", [])]
+        result["health"] = {
+            "available": True,
+            "open_issues": sum(1 for item in events if item["status"] == "open"),
+            "scheduled_changes": sum(1 for item in events if item["status"] == "upcoming"),
+            "events": events,
+        }
+    except Exception as error:
+        result["health"] = {"available": False, "message": "AWS Health access is unavailable for this account.", "detail": type(error).__name__}
+    return result
 
 
 @app.get("/api/v1/operations/aws/instances/{instance_id}/status")

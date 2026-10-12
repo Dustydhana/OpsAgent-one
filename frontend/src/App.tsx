@@ -927,7 +927,13 @@ function Dashboard({
   health: Health[];
   onNavigate?: (page: string) => void;
 }) {
+  type AwsDashboardSummary = {
+    connected: boolean;
+    cost: { available: boolean; month_to_date?: number; currency?: string; daily?: { date: string; amount: number }[]; message?: string };
+    health: { available: boolean; open_issues?: number; scheduled_changes?: number; events?: { service: string; region: string; status: string; type: string; start_time?: string }[]; message?: string };
+  };
   const [operations, setOperations] = useState<{ summary: Record<string, number>; events: Record<string, unknown>[] } | null>(null);
+  const [awsDashboard, setAwsDashboard] = useState<AwsDashboardSummary | null>(null);
   const [slack, setSlack] = useState<Record<string, number> | null>(null);
   const [gmail, setGmail] = useState<Record<string, number> | null>(null);
   const [hardware, setHardware] = useState<HardwareDashboard | null>(null);
@@ -960,15 +966,17 @@ function Dashboard({
       api<Record<string, unknown>[]>("/logs?limit=8"),
       api<HardwareDashboard>("/hardware/dashboard"),
       api<SccmInventory>("/sccm/inventory"),
+      api<AwsDashboardSummary>("/operations/aws/dashboard"),
     ]);
-    const [awsResult, slackResult, gmailResult, logResult, hardwareResult, sccmResult] = results;
+    const [awsResult, slackResult, gmailResult, logResult, hardwareResult, sccmResult, awsDashboardResult] = results;
     if (awsResult.status === "fulfilled") setOperations(awsResult.value);
     if (slackResult.status === "fulfilled") setSlack(slackResult.value.summary);
     if (gmailResult.status === "fulfilled") setGmail(gmailResult.value.summary);
     if (logResult.status === "fulfilled") setLogs(logResult.value);
     if (hardwareResult.status === "fulfilled") setHardware(hardwareResult.value);
     if (sccmResult.status === "fulfilled") setSccmDashboard(sccmResult.value);
-    const names = ["Change audit", "Slack", "Gmail", "Operational logs", "Hardware", "SCCM"];
+    if (awsDashboardResult.status === "fulfilled") setAwsDashboard(awsDashboardResult.value);
+    const names = ["Change audit", "Slack", "Gmail", "Operational logs", "Hardware", "SCCM", "AWS insights"];
     setLoadIssues(results.flatMap((result, index) => result.status === "rejected" ? [names[index]] : []));
     setLastUpdated(new Date());
     setRefreshing(false);
@@ -1102,6 +1110,11 @@ function Dashboard({
       <section className="dashboard-console-widgets">
         <article className="dashboard-console-card"><header><h3>Recently visited</h3><MoreHorizontal/></header><div className="dashboard-service-links">{[["AWS operations",FaAws],["Server inventory",Server],["Connections",Cable],["SCCM operations",MonitorCog],["Agent health",Activity],["Documentation",BookOpen]].map(([label,Icon])=><button key={String(label)} onClick={()=>onNavigate?.(String(label))}><Icon/><span>{String(label)}</span><ChevronRight/></button>)}</div></article>
         <article className="dashboard-console-card welcome"><header><h3>Welcome to OpsAgent</h3><MoreHorizontal/></header><button onClick={()=>onNavigate?.("Connections")}><Cable/><span><b>Connect infrastructure</b><small>Add AWS, communication and enterprise platforms.</small></span></button><button onClick={()=>onNavigate?.("OpsAgent chat")}><Sparkles/><span><b>Ask OpsAgent</b><small>Investigate your estate and prepare approved operations.</small></span></button><button onClick={()=>onNavigate?.("Documentation")}><BookOpen/><span><b>Getting started</b><small>Review setup, SSM Agent and security guidance.</small></span></button></article>
+      </section>
+
+      <section className="dashboard-aws-widgets">
+        <article className="dashboard-aws-card cost"><header><div><span>AWS BILLING</span><h3>Cost and usage</h3></div><button onClick={() => onNavigate?.("AI usage & cost")}>View details <ChevronRight/></button></header>{awsDashboard?.cost.available ? <div className="aws-cost-content"><div><small>Month to date</small><strong>{new Intl.NumberFormat("en-US", {style:"currency", currency:awsDashboard.cost.currency || "USD"}).format(awsDashboard.cost.month_to_date || 0)}</strong><span>Live Cost Explorer total</span></div><div className="aws-cost-bars">{(awsDashboard.cost.daily || []).slice(-14).map((item) => { const max = Math.max(0.01, ...(awsDashboard.cost.daily || []).slice(-14).map((day) => day.amount)); return <i key={item.date} style={{height:`${Math.max(4,item.amount/max*100)}%`}} title={`${item.date}: ${item.amount}`}/>; })}</div></div> : <div className="aws-widget-empty"><Database/><div><strong>Cost data unavailable</strong><span>{awsDashboard?.cost.message || "Loading AWS Cost Explorer…"}</span></div><button onClick={() => onNavigate?.("Connections")}>Configure AWS</button></div>}</article>
+        <article className="dashboard-aws-card health"><header><div><span>ACCOUNT STATUS</span><h3>AWS Health</h3></div><button onClick={() => onNavigate?.("AWS operations")}>Open AWS <ChevronRight/></button></header>{awsDashboard?.health.available ? <div className="aws-health-content"><div><small>Open issues</small><strong className={(awsDashboard.health.open_issues || 0) > 0 ? "warning" : "healthy"}>{awsDashboard.health.open_issues || 0}</strong></div><div><small>Scheduled changes</small><strong>{awsDashboard.health.scheduled_changes || 0}</strong></div>{(awsDashboard.health.events || []).slice(0,2).map((event,index)=><p key={`${event.type}-${index}`}><i/><span><b>{event.service}</b>{event.type.replaceAll("_"," ")}</span><small>{event.region}</small></p>)}</div> : <div className="aws-widget-empty"><Activity/><div><strong>Health data unavailable</strong><span>{awsDashboard?.health.message || "Loading AWS Health…"}</span></div><button onClick={() => onNavigate?.("Connections")}>Check connection</button></div>}</article>
       </section>
 
       <section className="command-kpis">

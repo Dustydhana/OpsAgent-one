@@ -26,6 +26,7 @@ from aws_operations import (  # noqa: F401
 )
 from aws_operations import connection_status
 from aws_operations import client_for_credentials
+from aws_operations import service_client_for_credentials
 from .base import ProviderCapabilities
 from aws_inventory import list_inventory, start as start_inventory_sync, status as inventory_status, sync as sync_inventory
 
@@ -45,6 +46,7 @@ __all__ = [
     "audit_summary",
     "connection_status",
     "client_for_credentials",
+    "service_client_for_credentials",
     "describe_instance",
     "instance_status",
     "describe_snapshot",
