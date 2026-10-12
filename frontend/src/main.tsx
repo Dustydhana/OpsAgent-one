@@ -37,4 +37,5 @@ import './service-desk-workflow-fix.css'
 import './responsive.css'
 import './routing-ui.css'
 import './model-chat-fixes.css'
+import './aws-vm-cards.css'
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>)

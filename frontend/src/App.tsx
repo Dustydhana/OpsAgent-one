@@ -2278,7 +2278,7 @@ function Chat() {
 }
 
 function AwsOperations({ servers }: { servers: Machine[] }) {
-  const [action, setAction] = useState("start_instance");
+  const [action, setAction] = useState("");
   const [target, setTarget] = useState(servers[0]?.aws_instance_id || "");
   const [confirmation, setConfirmation] = useState("");
   const [result, setResult] = useState("");
@@ -2628,8 +2628,10 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
       if (finalState !== "accepted") {
         setProgressStage(4);
         setResult(`Completed and verified · ${finalState}`);
-        await api("/connections/aws/sync", { method: "POST" });
       }
+      await api("/connections/aws/sync", { method: "POST" });
+      const updatedRecords = await api<Machine[]>("/inventory/servers");
+      setInventory(updatedRecords.filter((item) => item.vm_type === "aws" && item.enabled !== false && item.status !== "terminated"));
       loadAudit();
     } catch (e) {
       setResult((e as Error).message);
@@ -2639,12 +2641,23 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
     }
   }
   const selected = inventory.find((x) => x.aws_instance_id === target);
-  const selectedOsText = `${selected?.os_type || ""} ${selected?.os_version || ""}`.toLowerCase();
-  const selectedOs = selectedOsText.includes("windows") ? "windows" : selectedOsText.includes("linux") ? "linux" : "unknown";
   const optionOs = (server: Machine) => {
     const os = `${server.os_type || ""} ${server.os_version || ""}`.toLowerCase();
     return os.includes("windows") ? "Windows" : os.includes("linux") ? "Linux" : "OS unknown";
   };
+  const chooseOperation = (operation: string, instanceId?: string) => {
+    setAction(operation);
+    if (instanceId) setTarget(instanceId);
+    setConfirmation("");
+    setResult("");
+  };
+  const actionLabel: Record<string, string> = {
+    start_instance: "Start VM", stop_instance: "Stop VM", reboot_instance: "Reboot VM",
+    resize_instance: "Resize VM", create_snapshot: "Create snapshot", terminate_instance: "Terminate VM",
+    extend_volume: "Extend EBS volume", delete_volume: "Delete EBS volume", delete_snapshot: "Delete snapshot",
+  };
+  const runningCount = inventory.filter((server) => String(server.status).toLowerCase() === "running").length;
+  const stoppedCount = inventory.filter((server) => String(server.status).toLowerCase() === "stopped").length;
   return (
     <>
       <section className="operation-page-lead"><div className="operation-lead-icon"><FaAws /></div><div><span>AMAZON WEB SERVICES</span><h2>Guarded AWS operations</h2><p>Preview, approve, execute and verify infrastructure changes from one controlled workspace.</p></div><div className="aws-lead-actions"><div className="operation-lead-state"><i />{inventory.length} managed resources</div><button onClick={refreshInventory} disabled={syncingInventory}><RefreshCw className={syncingInventory?"spin":""}/>{syncingInventory?"Synchronizing…":"Refresh inventory"}</button><button onClick={() => { sessionStorage.setItem("opsagent-chat-draft", "Provision a new AWS EC2 virtual machine."); onNavigate?.("OpsAgent chat"); }}><Sparkles /> Create new VM with agent</button></div></section>
@@ -2653,54 +2666,31 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
         <article className="aws-command">
           <div className="panel-title">
             <div>
-              <p className="eyebrow">CONTROLLED CHANGE</p>
-              <h3>Run AWS operation</h3>
+              <p className="eyebrow">LIVE EC2 INVENTORY</p>
+              <h3>Virtual machines</h3>
             </div>
-            <span>RBAC · approval · audit</span>
+            <div className="aws-state-summary"><span><i className="running"/>{runningCount} Running</span><span><i className="stopped"/>{stoppedCount} Stopped</span><span>{inventory.length} Total</span></div>
           </div>
+          {inventory.length ? <div className="aws-vm-grid">
+            {inventory.map((server) => {
+              const state = String(server.status || "unknown").toLowerCase();
+              const os = optionOs(server).toLowerCase();
+              const isSelected = target === server.aws_instance_id;
+              return <article className={`aws-vm-card ${isSelected?"selected":""}`} key={server.aws_instance_id} onClick={()=>setTarget(server.aws_instance_id)}>
+                <header><span className={`target-os-icon ${os}`}>{os==="windows"?<FaWindows/>:os==="linux"?<SiLinux/>:<Server/>}</span><div><strong>{server.server_name || "Unnamed VM"}</strong><code>{server.aws_instance_id}</code></div><span className={`vm-power-state ${state}`}><i/>{state}</span></header>
+                <dl><div><dt>Type</dt><dd>{server.instance_type || "—"}</dd></div><div><dt>Region / zone</dt><dd>{server.availability_zone || server.aws_region || "—"}</dd></div><div><dt>Private IP</dt><dd>{server.private_ip_address || server.ip_address || "—"}</dd></div><div><dt>Environment</dt><dd>{server.environment || "—"}</dd></div></dl>
+                <footer onClick={(event)=>event.stopPropagation()}>
+                  {state==="running"?<><button className="power stop" onClick={()=>chooseOperation("stop_instance",server.aws_instance_id)}>Stop</button><button onClick={()=>chooseOperation("reboot_instance",server.aws_instance_id)}>Reboot</button></>:<button className="power start" disabled={state!=="stopped"} onClick={()=>chooseOperation("start_instance",server.aws_instance_id)}>Start</button>}
+                  <button onClick={()=>chooseOperation("resize_instance",server.aws_instance_id)}>Resize</button><button onClick={()=>chooseOperation("create_snapshot",server.aws_instance_id)}>Snapshot</button><button className="danger" onClick={()=>chooseOperation("terminate_instance",server.aws_instance_id)}>Terminate</button>
+                </footer>
+              </article>;
+            })}
+          </div>:<div className="aws-vm-empty"><Server/><h3>No EC2 virtual machines found</h3><p>Refresh inventory or verify the connected AWS account and region.</p></div>}
+          <div className="aws-storage-tools"><span>Storage operations</span><button onClick={()=>chooseOperation("extend_volume")}>Extend volume</button><button onClick={()=>chooseOperation("delete_volume")}>Delete volume</button><button onClick={()=>chooseOperation("delete_snapshot")}>Delete snapshot</button></div>
+          {action && <section className="aws-operation-review">
+            <header><div><span>SELECTED OPERATION</span><h3>{actionLabel[action] || action.replaceAll("_"," ")}</h3><p>{instanceActions.includes(action)?`${selected?.server_name || "Selected VM"} · ${target}`:"Enter the AWS resource identifier below."}</p></div><button onClick={()=>{setAction("");setConfirmation("");}} aria-label="Close operation"><X/></button></header>
           <form className="operation-form" onSubmit={execute}>
             <div className="form-grid">
-              <label>
-                Operation
-                <select
-                  value={action}
-                  onChange={(e) => {
-                    setAction(e.target.value);
-                    setConfirmation("");
-                  }}
-                >
-                  <option value="start_instance">Start instance</option>
-                  <option value="stop_instance">Stop instance</option>
-                  <option value="reboot_instance">Reboot instance</option>
-                  <option value="resize_instance">Resize instance</option>
-                  <option value="create_snapshot">Create snapshot</option>
-                  <option value="extend_volume">Extend EBS volume</option>
-                  <option value="detach_secondary_nic">
-                    Detach secondary NIC
-                  </option>
-                  <option value="terminate_instance">Terminate instance</option>
-                  <option value="delete_snapshot">Delete snapshot</option>
-                  <option value="delete_volume">Delete volume</option>
-                </select>
-              </label>
-              {instanceActions.includes(action) && (
-                <label>
-                  Instance
-                  <select
-                    value={target}
-                    onChange={(e) => {
-                      setTarget(e.target.value);
-                      setConfirmation("");
-                    }}
-                  >
-                    {inventory.map((s) => (
-                      <option value={s.aws_instance_id} key={s.aws_instance_id}>
-                        {optionOs(s)} · {s.server_name} · {s.aws_instance_id}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
               {action === "resize_instance" && (
                 <label>
                   New instance type
@@ -2738,23 +2728,6 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
                 </label>
               )}
             </div>
-            <div className="target-preview">
-              <div className="target-resource-identity">
-                <span className={`target-os-icon ${selectedOs}`} aria-label={`${selectedOs} server`}>
-                  {selectedOs === "windows" ? <FaWindows /> : selectedOs === "linux" ? <SiLinux /> : <Server />}
-                </span>
-                <div>
-                  <small>Selected {selectedOs === "unknown" ? "server" : `${selectedOs} server`}</small>
-                  <strong>
-                    {selected?.server_name || identifier || "Select a resource"}
-                  </strong>
-                  <code>{identifier || "—"}</code>
-                </div>
-              </div>
-              <span className={`status ${selected?.status}`}>
-                {selected?.status || "resource"}
-              </span>
-            </div>
             <div className="approval-box">
               <span>Type the exact phrase to authorize this change</span>
               <code>{expected}</code>
@@ -2777,6 +2750,7 @@ function AwsOperationsV2({ servers, onNavigate }: { servers: Machine[]; onNaviga
             ].map((label, index) => <div className={index <= progressStage ? "active" : "pending"} key={label}><i>{index < progressStage ? <CheckCircle2 /> : index + 1}</i><span>{label}</span>{index === progressStage && <em>In progress</em>}</div>)}</div></section>}
             {result && <p className="notice">{result}</p>}
           </form>
+          </section>}
         </article>
       </section>
       {audit && (
