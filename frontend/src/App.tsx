@@ -4006,13 +4006,6 @@ function Documentation() {
   return (
     <div className="public-docs-view authenticated-docs-view">
     <section className={`docs-portal ${section === "Documentation home" ? "docs-home-mode" : ""}`}>
-      {section === "Documentation home" ? <header className="docs-home-hero">
-        <span>OPSAGENT ONE DOCUMENTATION</span>
-        <h1>Welcome to OpsAgent One Documentation</h1>
-        <p>Enterprise guidance for monitoring, cloud lifecycle management, operating-system administration and patch compliance.</p>
-        <div className="docs-home-search"><Search/><input value={docsQuery} onChange={(event) => setDocsQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && visibleSections[0]) openSection(visibleSections[0]); }} placeholder="Search architecture, integrations, security and operations"/><kbd>/</kbd><button onClick={() => visibleSections[0] && openSection(visibleSections[0])}>Search</button><button className="docs-ask-ai" onClick={() => openSection("Overview")}><Sparkles/> Ask OpsAgent</button></div>
-        <small>Popular: <button onClick={() => openSection("AWS connection model")}>AWS connection</button><button onClick={() => openSection("SSM Agent setup")}>SSM Agent setup</button><button onClick={() => openSection("SCCM connector")}>SCCM integration</button><button onClick={() => openSection("Security")}>Security architecture</button></small>
-      </header> : null}
       <div className="docs-shell">
       <aside className="docs-nav">
         <div className="docs-nav-title"><strong>OpsAgent Docs</strong></div>
@@ -4031,6 +4024,7 @@ function Documentation() {
       <article className="docs-content">
         {section === "Documentation home" && (
           <>
+            <header className="docs-compact-intro"><div><span>OPSAGENT ONE DOCUMENTATION</span><h1>Documentation</h1><p>Practical guidance for connecting, securing and operating your infrastructure.</p></div><label><Search/><input value={docsQuery} onChange={(event)=>setDocsQuery(event.target.value)} onKeyDown={(event)=>{if(event.key==="Enter"&&visibleSections[0])openSection(visibleSections[0]);}} placeholder="Search documentation"/></label></header>
             <div className="docs-onboarding-path">
               <button onClick={() => setSection("Overview")}><b>01</b><span><strong>Establish the architecture</strong><small>Define the control plane, customer agent and trust boundaries.</small><em>Platform overview <ChevronRight/></em></span></button>
               <button onClick={() => setSection("Connect infrastructure")}><b>02</b><span><strong>Connect the enterprise estate</strong><small>Register infrastructure using least-privilege identities.</small><em>Connection guidance <ChevronRight/></em></span></button>
