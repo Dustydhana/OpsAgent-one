@@ -768,10 +768,6 @@ function App() {
   return (
     <div className={`shell ${sidebarCompact ? "sidebar-compact" : ""} ${active === "Documentation" ? "documentation-shell" : ""}`}>
       <aside>
-        <div className="logo"><BrandLockup compact /></div>
-        <button className="sidebar-toggle" onClick={() => setSidebarCompact((current) => { const next = !current; localStorage.setItem("opsagent_sidebar_compact", String(next)); return next; })} title={sidebarCompact ? "Expand navigation" : "Collapse navigation"} aria-label={sidebarCompact ? "Expand navigation" : "Collapse navigation"}>
-          {sidebarCompact ? <ChevronsRight /> : <><ChevronsLeft /><span>Collapse navigation</span></>}
-        </button>
         <nav>
           {navGroups.map((group) => (
             <div className="nav-group" key={group.label}>
@@ -791,27 +787,19 @@ function App() {
             </div>
           ))}
         </nav>
-        <div className="user">
-          {sidebarCompact ? <button className="avatar profile-avatar" onClick={() => setLogoutConfirmOpen(true)} title="Sign out" aria-label="Sign out">
-            {user.display_name.slice(0, 2).toUpperCase()}
-          </button> : <div className="avatar">
-            {user.display_name.slice(0, 2).toUpperCase()}
-          </div>}
-          <div className="user-identity" title={user.display_name}>
-            <strong>{user.display_name}</strong>
-            <span>{displayRole(user.organization_role || user.role)}</span>
-          </div>
-          <button onClick={() => setLogoutConfirmOpen(true)} title="Sign out">
-            <LogOut />
-          </button>
-        </div>
       </aside>
       <main className={`workspace ${STANDARD_BANNER_PAGES.has(active)?"standardized-workspace":""}`}>
         <div className="enterprise-bar">
-          <div className="breadcrumb">
-            <span>OpsAgent One</span>
-            <b>/</b>
-            <strong>{active}</strong>
+          <div className="topbar-leading">
+            <button className="topbar-nav-toggle" onClick={() => setSidebarCompact((current) => { const next = !current; localStorage.setItem("opsagent_sidebar_compact", String(next)); return next; })} title={sidebarCompact ? "Expand navigation" : "Collapse navigation"} aria-label={sidebarCompact ? "Expand navigation" : "Collapse navigation"}>
+              {sidebarCompact ? <ChevronsRight /> : <Menu />}
+            </button>
+            <button className="topbar-brand" onClick={() => navigatePage("Dashboard")} aria-label="OpsAgent One home"><BrandLockup compact /></button>
+            <div className="breadcrumb">
+              <span>OpsAgent One</span>
+              <b>/</b>
+              <strong>{active}</strong>
+            </div>
           </div>
           <div className="context">
             <button className="global-search" onClick={() => navigatePage("Server inventory")}>
@@ -1090,7 +1078,7 @@ function Dashboard({
   };
   return (
     <section className="command-dashboard">
-      <section className="command-heading"><div><span>OPERATIONS COMMAND CENTER</span><h2>Infrastructure operations at a glance</h2><p>Live estate health, alerts, changes and connector readiness.</p><small className={loadIssues.length ? "dashboard-freshness degraded" : "dashboard-freshness"}><i />{loadIssues.length ? `Partial data · ${loadIssues.join(", ")} unavailable` : `Live data · updated ${lastUpdated ? lastUpdated.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}) : "now"}`}</small></div><div><button className="icon-action" onClick={loadDashboard} disabled={refreshing} title="Refresh dashboard"><RefreshCw className={refreshing ? "spin" : ""}/></button><button className="secondary-action" onClick={() => onNavigate?.("Server inventory")}><Server /> View inventory</button><button className="primary-action" onClick={() => onNavigate?.("OpsAgent chat")}><Sparkles /> Ask OpsAgent</button></div></section>
+      <section className="command-heading"><div><h2>Console home</h2><small className={loadIssues.length ? "dashboard-freshness degraded" : "dashboard-freshness"}><i />{loadIssues.length ? `Partial data · ${loadIssues.join(", ")} unavailable` : `Live data · updated ${lastUpdated ? lastUpdated.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}) : "now"}`}</small></div><div><button className="icon-action" onClick={loadDashboard} disabled={refreshing} title="Refresh dashboard"><RefreshCw className={refreshing ? "spin" : ""}/></button></div></section>
 
       <section className="dashboard-console-widgets">
         <article className="dashboard-console-card"><header><h3>Recently visited</h3><MoreHorizontal/></header><div className="dashboard-service-links">{[["AWS operations",FaAws],["Server inventory",Server],["Connections",Cable],["SCCM operations",MonitorCog],["Agent health",Activity],["Documentation",BookOpen]].map(([label,Icon])=><button key={String(label)} onClick={()=>onNavigate?.(String(label))}><Icon/><span>{String(label)}</span><ChevronRight/></button>)}</div></article>
