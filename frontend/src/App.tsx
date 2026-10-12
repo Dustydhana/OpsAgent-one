@@ -766,7 +766,7 @@ function App() {
     setUser(result.user);
   }
   return (
-    <div className={`shell ${sidebarCompact ? "sidebar-compact" : ""}`}>
+    <div className={`shell ${sidebarCompact ? "sidebar-compact" : ""} ${active === "Documentation" ? "documentation-shell" : ""}`}>
       <aside>
         <div className="logo"><BrandLockup compact /></div>
         <button className="sidebar-toggle" onClick={() => setSidebarCompact((current) => { const next = !current; localStorage.setItem("opsagent_sidebar_compact", String(next)); return next; })} title={sidebarCompact ? "Expand navigation" : "Collapse navigation"} aria-label={sidebarCompact ? "Expand navigation" : "Collapse navigation"}>
