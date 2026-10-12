@@ -645,7 +645,7 @@ function Login({ onLogin }: { onLogin: (user: User) => void }) {
   );
 }
 
-const STANDARD_BANNER_PAGES = new Set(["OpsAgent chat","Connections","Server inventory","Decommission inventory","Hardware inventory","Azure operations","VMware operations","Windows operations","Linux operations","SCCM operations","Account & access","Settings","Documentation","Agent health","Live logs"]);
+const STANDARD_BANNER_PAGES = new Set(["OpsAgent chat","Connections","Server inventory","Decommission inventory","Hardware inventory","Azure operations","VMware operations","Windows operations","Linux operations","SCCM operations","Account & access","Settings","Agent health","Live logs"]);
 const STANDARD_BANNER_COPY: Record<string,string> = {
   "OpsAgent chat":"Ask questions, investigate infrastructure and prepare governed operations.",
   "Connections":"Connect and manage the platforms that power your operations.",
@@ -3982,6 +3982,7 @@ function Documentation() {
     "Capability matrix",
     "Integrations",
     "AWS connection model",
+    "SSM Agent setup",
     "Datadog",
     "Integration runbook",
     "Architecture",
@@ -4010,7 +4011,7 @@ function Documentation() {
         <h1>Welcome to OpsAgent One Documentation</h1>
         <p>Enterprise guidance for monitoring, cloud lifecycle management, operating-system administration and patch compliance.</p>
         <div className="docs-home-search"><Search/><input value={docsQuery} onChange={(event) => setDocsQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && visibleSections[0]) openSection(visibleSections[0]); }} placeholder="Search architecture, integrations, security and operations"/><kbd>/</kbd><button onClick={() => visibleSections[0] && openSection(visibleSections[0])}>Search</button><button className="docs-ask-ai" onClick={() => openSection("Overview")}><Sparkles/> Ask OpsAgent</button></div>
-        <small>Popular: <button onClick={() => openSection("AWS connection model")}>AWS connection</button><button onClick={() => openSection("SCCM connector")}>SCCM integration</button><button onClick={() => openSection("Security")}>Security architecture</button><button onClick={() => openSection("Production checklist")}>Production readiness</button></small>
+        <small>Popular: <button onClick={() => openSection("AWS connection model")}>AWS connection</button><button onClick={() => openSection("SSM Agent setup")}>SSM Agent setup</button><button onClick={() => openSection("SCCM connector")}>SCCM integration</button><button onClick={() => openSection("Security")}>Security architecture</button></small>
       </header> : null}
       <div className="docs-shell">
       <aside className="docs-nav">
@@ -4038,7 +4039,7 @@ function Documentation() {
             <div className="docs-catalog">
               <section className="docs-catalog-wide"><h2><Eye/> Monitoring and incident response <small>(6)</small></h2><div className="docs-catalog-card"><div><h4>INFRASTRUCTURE INTELLIGENCE</h4><button onClick={() => setSection("Overview")}><b>Infrastructure monitoring</b><span>Assess service health, availability and infrastructure performance.</span></button><button onClick={() => setSection("Architecture")}><b>Event correlation</b><span>Correlate alerts with infrastructure and operational context.</span></button></div><div><h4>INCIDENT OPERATIONS</h4><button onClick={() => setSection("Datadog")}><b>Monitoring integrations</b><span>Receive and govern events from enterprise monitoring platforms.</span></button><button onClick={() => setSection("Integration runbook")}><b>Investigation runbooks</b><span>Collect diagnostic evidence through controlled automation.</span></button></div><div><h4>RESPONSE GOVERNANCE</h4><button onClick={() => setSection("Control plane")}><b>Approval workflows</b><span>Apply human authorization before infrastructure changes.</span></button><button onClick={() => setSection("Security")}><b>Operational audit</b><span>Retain request, approval, execution and verification evidence.</span></button></div></div></section>
               <section><h2><Cloud/> Cloud operations <small>(5)</small></h2><div className="docs-catalog-card docs-catalog-stack"><div><h4>CLOUD LIFECYCLE</h4><button onClick={() => setSection("AWS connection model")}><b>AWS connection model</b><span>Configure temporary, role-based access with External ID protection.</span></button><button onClick={() => setSection("Connect infrastructure")}><b>Infrastructure onboarding</b><span>Register cloud estates using customer connectors.</span></button><button onClick={() => setSection("Capability matrix")}><b>Resource operations</b><span>Review supported inventory and lifecycle capabilities.</span></button></div></div></section>
-              <section><h2><MonitorCog/> Operating system operations <small>(5)</small></h2><div className="docs-catalog-card docs-catalog-stack"><div><h4>SERVER ADMINISTRATION</h4><button onClick={() => setSection("Customer agent")}><b>Customer agent deployment</b><span>Deploy the controlled execution agent inside the enterprise boundary.</span></button><button onClick={() => setSection("Architecture")}><b>Windows and Linux operations</b><span>Execute allowlisted administration and diagnostic runbooks.</span></button><button onClick={() => setSection("Control plane")}><b>Execution governance</b><span>Control authorization, execution and final-state verification.</span></button></div></div></section>
+              <section><h2><MonitorCog/> Operating system operations <small>(5)</small></h2><div className="docs-catalog-card docs-catalog-stack"><div><h4>SERVER ADMINISTRATION</h4><button onClick={() => setSection("SSM Agent setup")}><b>AWS SSM Agent setup</b><span>Install, authorize and verify Windows or Linux managed nodes.</span></button><button onClick={() => setSection("Architecture")}><b>Windows and Linux operations</b><span>Execute allowlisted administration and diagnostic runbooks.</span></button><button onClick={() => setSection("Control plane")}><b>Execution governance</b><span>Control authorization, execution and final-state verification.</span></button></div></div></section>
               <section><h2><CheckCircle2/> Patching and compliance <small>(4)</small></h2><div className="docs-catalog-card docs-catalog-stack"><div><h4>PATCH GOVERNANCE</h4><button onClick={() => setSection("SCCM connector")}><b>SCCM and WSUS</b><span>Connect endpoint inventory and managed patch workflows.</span></button><button onClick={() => setSection("Production checklist")}><b>Production readiness</b><span>Validate change controls, deployment rings and compliance evidence.</span></button></div></div></section>
               <section><h2><ShieldCheck/> Platform security <small>(4)</small></h2><div className="docs-catalog-card docs-catalog-stack"><div><h4>ENTERPRISE CONTROL</h4><button onClick={() => setSection("Security")}><b>Identity and authorization</b><span>Implement least privilege, MFA, RBAC and credential isolation.</span></button><button onClick={() => setSection("Choose an LLM")}><b>AI governance</b><span>Select approved models and enforce enterprise trust boundaries.</span></button></div></div></section>
             </div>
@@ -4149,6 +4150,47 @@ function Documentation() {
             <h3>Troubleshooting</h3>
             <div className="docs-troubleshoot"><div><b>Access key must begin with AKIA</b><p>You entered a user ARN or username. Create an IAM access key and copy its Access key ID.</p></div><div><b>InvalidClientTokenId</b><p>Confirm the key was copied completely, belongs to the intended AWS partition and has not been deactivated.</p></div><div><b>SignatureDoesNotMatch</b><p>The secret key is incorrect. AWS cannot display it again; create a replacement access key.</p></div><div><b>AccessDenied</b><p>The identity is valid but lacks STS, EC2 discovery or requested operation permissions. Review the IAM policy and target conditions.</p></div><div><b>No resources imported</b><p>Confirm the selected region. EC2 inventory is regional, so a valid connection can return zero resources in the wrong region.</p></div><div><b>Role cannot be assumed</b><p>Use the complete role ARN and ensure its trust policy permits the base identity with the exact External ID.</p></div></div>
             <Callout title="What you do not need">Do not create an API Gateway key or share a root credential, AWS console password, MFA code or ordinary IAM user ARN with OpsAgent.</Callout>
+          </>
+        )}
+        {section === "SSM Agent setup" && (
+          <>
+            <p className="docs-breadcrumb">Docs / AWS / Systems Manager / SSM Agent setup</p>
+            <p className="eyebrow">AWS SYSTEMS MANAGER</p>
+            <h2>Install and register SSM Agent</h2>
+            <p className="lead">Yes—SSM Agent must be installed and running on every Windows or Linux server that OpsAgent manages through AWS Systems Manager. Many AWS-provided AMIs already include it, so verify first and install only when it is missing.</p>
+            <Callout title="SSM Agent is different from OpsAgent">SSM Agent is the AWS service running on the target server. OpsAgent sends only approved Systems Manager documents through the AWS API; it does not replace or bundle the SSM Agent.</Callout>
+            <h3>Prerequisites</h3>
+            <ol><li>Attach an EC2 instance profile containing <code>AmazonSSMManagedInstanceCore</code>.</li><li>Allow outbound HTTPS on port 443 to the regional Systems Manager endpoints, or configure the required VPC endpoints.</li><li>Ensure DNS and accurate system time are available.</li><li>Tag targets with <code>OpsAgentManaged=true</code> when your OpsAgent policy requires it.</li></ol>
+            <h3>Amazon Linux 2 or Amazon Linux 2023</h3>
+            <p>First check the service. AWS Amazon Linux images commonly include SSM Agent.</p>
+            <CodeBlock>{`sudo systemctl status amazon-ssm-agent
+
+# If it is missing on an x86_64 host:
+sudo dnf install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm || \
+sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+
+sudo systemctl enable --now amazon-ssm-agent`}</CodeBlock>
+            <h3>Ubuntu Server</h3>
+            <CodeBlock>{`sudo snap list amazon-ssm-agent
+
+# Install only when the package is absent:
+sudo snap install amazon-ssm-agent --classic
+sudo snap start amazon-ssm-agent
+sudo snap services amazon-ssm-agent`}</CodeBlock>
+            <h3>Windows Server</h3>
+            <p>AWS Windows Server AMIs normally include SSM Agent. Verify the service before downloading the installer.</p>
+            <CodeBlock>{`Get-Service AmazonSSMAgent
+
+# Install only when the service is missing:
+$installer = "$env:TEMP\\AmazonSSMAgentSetup.exe"
+Invoke-WebRequest "https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/windows_amd64/AmazonSSMAgentSetup.exe" -OutFile $installer
+Start-Process $installer -ArgumentList "/S" -Wait
+Start-Service AmazonSSMAgent
+Set-Service AmazonSSMAgent -StartupType Automatic`}</CodeBlock>
+            <h3>Verify registration</h3>
+            <ol><li>Open AWS Systems Manager → Fleet Manager → Managed nodes.</li><li>Confirm the instance appears with <b>Connection status: Online</b>.</li><li>Run a read-only command such as inventory or hostname against a non-production target.</li><li>Confirm OpsAgent can resolve the instance ID and retrieve command status without exposing command credentials.</li></ol>
+            <div className="docs-troubleshoot"><div><b>Agent installed but node is offline</b><p>Check the instance profile, outbound HTTPS, DNS, regional endpoints and the agent log.</p></div><div><b>Linux log</b><p><code>/var/log/amazon/ssm/amazon-ssm-agent.log</code></p></div><div><b>Windows log</b><p><code>C:\\ProgramData\\Amazon\\SSM\\Logs\\amazon-ssm-agent.log</code></p></div><div><b>Access denied</b><p>Confirm the instance role—not the human user—has <code>AmazonSSMManagedInstanceCore</code>.</p></div></div>
+            <Callout title="Production recommendation">Use a golden AMI or configuration-management policy to keep SSM Agent installed, updated and running. Test the version update on non-production servers before broad rollout.</Callout>
           </>
         )}
         {section === "Datadog" && (
