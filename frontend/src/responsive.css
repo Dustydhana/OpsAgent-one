@@ -357,3 +357,81 @@ body:has(.public-auth-page) {
     flex-wrap: wrap;
   }
 }
+
+/* Fluid application shell for browser resize, zoom, tablet and mobile. */
+.shell, .workspace, .workspace > *, .command-dashboard, .product-page { min-width: 0; }
+.workspace { width: 100%; }
+.dashboard-console-widgets, .dashboard-visuals, .primary-grid, .status-grid,
+.hardware-main-grid, .analytics-grid, .connection-grid { min-width: 0; }
+.dashboard-console-card, .dashboard-chart-panel, .command-panel,
+.hardware-panel, .connection-grid > * { min-width: 0; }
+
+@media (max-width: 1180px) {
+  :root[data-theme="light"] .shell:not(.sidebar-compact) {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+  :root[data-theme="light"] .shell:not(.sidebar-compact) > aside { width: 200px; }
+  :root[data-theme="light"] .workspace { padding-inline: 18px !important; }
+  .topbar-leading > .global-search { width: min(330px, 34vw) !important; }
+  .dashboard-console-widgets { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 900px) {
+  :root[data-theme="light"] .shell,
+  :root[data-theme="light"] .shell:not(.sidebar-compact),
+  :root[data-theme="light"] .shell.sidebar-compact {
+    display: grid !important;
+    grid-template-columns: 64px minmax(0, 1fr) !important;
+  }
+  :root[data-theme="light"] .shell > aside,
+  :root[data-theme="light"] .shell:not(.sidebar-compact) > aside,
+  :root[data-theme="light"] .shell.sidebar-compact > aside {
+    position: fixed !important;
+    top: 54px !important;
+    bottom: 0 !important;
+    width: 64px !important;
+    height: auto !important;
+    padding: 12px 8px !important;
+  }
+  :root[data-theme="light"] .shell > aside nav { display: flex !important; overflow-y: auto; }
+  :root[data-theme="light"] .shell .nav-group > p,
+  :root[data-theme="light"] .shell .nav-group > button > span { display: none !important; }
+  :root[data-theme="light"] .shell .nav-group > button {
+    width: 44px !important;
+    justify-content: center !important;
+    margin-inline: auto !important;
+    padding: 8px !important;
+  }
+  :root[data-theme="light"] .shell .workspace {
+    grid-column: 2 !important;
+    width: 100% !important;
+    padding: 72px 14px 40px !important;
+  }
+  :root[data-theme="light"] .enterprise-bar {
+    position: fixed !important;
+    inset: 0 0 auto 0 !important;
+  }
+  .topbar-leading > .global-search { width: clamp(38px, 32vw, 260px) !important; min-width: 38px !important; }
+  .enterprise-bar .context .top-profile.top-account { width: 38px !important; min-width: 38px !important; padding: 4px !important; }
+  .enterprise-bar .top-account > span, .enterprise-bar .top-account > svg { display: none !important; }
+  .command-kpis, .hardware-kpis, .hardware-kpis.five { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+
+@media (max-width: 600px) {
+  :root[data-theme="light"] .enterprise-bar { height: 50px !important; padding-inline: 7px !important; }
+  .topbar-leading { gap: 3px !important; }
+  .topbar-brand { margin-right: 2px !important; padding-inline: 5px !important; border-right: 0 !important; }
+  .topbar-brand .brand-lockup > div:last-child { display: none !important; }
+  .topbar-leading > .global-search { width: 38px !important; padding: 8px !important; }
+  .topbar-leading > .global-search span, .topbar-leading > .global-search kbd { display: none !important; }
+  :root[data-theme="light"] .shell > aside,
+  :root[data-theme="light"] .shell:not(.sidebar-compact) > aside,
+  :root[data-theme="light"] .shell.sidebar-compact > aside { top: 50px !important; }
+  :root[data-theme="light"] .shell .workspace { padding: 64px 10px 32px !important; }
+  .command-kpis, .hardware-kpis, .hardware-kpis.five,
+  .dashboard-visuals { grid-template-columns: 1fr !important; }
+  .dashboard-service-links { grid-template-columns: 1fr !important; }
+  .standard-workspace-banner, .page-lead, .operation-page-lead,
+  .alert-page-heading { padding: 16px !important; }
+  .modal, [role="dialog"] { max-width: calc(100vw - 20px) !important; max-height: calc(100dvh - 20px); overflow:auto; }
+}
