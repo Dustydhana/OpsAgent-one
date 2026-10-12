@@ -2545,6 +2545,7 @@ function AwsOperationsV2({ servers, user, onNavigate }: { servers: Machine[]; us
   const [audit, setAudit] = useState<{events: Record<string, unknown>[]} | null>(null);
   const [result, setResult] = useState("");
   const [busy, setBusy] = useState(false);
+  const [operationStarted, setOperationStarted] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [progressStage, setProgressStage] = useState(0);
   const operationPanel = useRef<HTMLElement | null>(null);
@@ -2600,6 +2601,7 @@ function AwsOperationsV2({ servers, user, onNavigate }: { servers: Machine[]; us
   async function execute(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
+    setOperationStarted(true);
     setProgressStage(0);
     setResult("");
     try {
@@ -2633,9 +2635,11 @@ function AwsOperationsV2({ servers, user, onNavigate }: { servers: Machine[]; us
       setInventory(updatedRecords.filter((item) => item.vm_type === "aws" && item.enabled !== false && item.status !== "terminated"));
       await loadAudit().catch(()=>undefined);
       setInventoryMessage(`${actionLabel[action] || action.replaceAll("_"," ")} completed for ${selected?.server_name || identifier}.`);
+      setOperationStarted(false);
       setAction("");
     } catch (e) {
-      setResult((e as Error).message);
+      const message=(e as Error).message;
+      setResult(message.includes("502")?"Operation API is temporarily unavailable (502). Please retry after the deployment service is ready.":message);
     } finally {
       setBusy(false);
     }
@@ -2650,6 +2654,7 @@ function AwsOperationsV2({ servers, user, onNavigate }: { servers: Machine[]; us
     if (instanceId) setTarget(instanceId);
     setConfirmation("");
     setResult("");
+    setOperationStarted(false);
   };
   const actionLabel: Record<string, string> = {
     start_instance: "Start VM", stop_instance: "Stop VM", reboot_instance: "Reboot VM",
@@ -2691,8 +2696,8 @@ function AwsOperationsV2({ servers, user, onNavigate }: { servers: Machine[]; us
             <div className="aws-instance-filters"><span>Instance state</span>{(["all","running","stopped"] as const).map((filter)=><button className={instanceFilter===filter?"active":""} onClick={()=>setInstanceFilter(filter)} key={filter}>{filter==="all"?`All (${inventory.length})`:filter==="running"?`Running (${runningCount})`:`Stopped (${stoppedCount})`}</button>)}</div>
             <div className="aws-instance-table-wrap"><table className="aws-instance-table"><thead><tr><th><input type="checkbox" checked={visibleInstances.length>0&&visibleInstances.every((server)=>selectedTargets.includes(server.aws_instance_id))} onChange={(event)=>{const ids=visibleInstances.map((server)=>server.aws_instance_id);setSelectedTargets(event.target.checked?Array.from(new Set([...selectedTargets,...ids])):selectedTargets.filter((id)=>!ids.includes(id)));setTarget("");setAction("");setConfirmation("");}} aria-label="Select all visible instances"/></th><th>Name</th><th>Instance ID</th><th>Instance state</th><th>Instance type</th><th>Status check</th><th>Availability Zone</th><th>Public IPv4 DNS</th><th>Public IPv4</th><th>Elastic IP</th><th>Private IPv4</th><th>Monitoring</th><th>Environment</th></tr></thead><tbody>{visibleInstances.map((server)=>{const state=String(server.status||"unknown").toLowerCase();return <tr className={selectedTargets.includes(server.aws_instance_id)?"selected":""} key={server.aws_instance_id} onClick={()=>selectInstance(server.aws_instance_id,!selectedTargets.includes(server.aws_instance_id))}><td><input type="checkbox" checked={selectedTargets.includes(server.aws_instance_id)} onChange={(event)=>selectInstance(server.aws_instance_id,event.target.checked)} onClick={(event)=>event.stopPropagation()} aria-label={`Select ${server.server_name}`}/></td><td><span className="aws-table-name"><i className={optionOs(server).toLowerCase()}>{optionOs(server).toLowerCase()==="windows"?<FaWindows/>:<SiLinux/>}</i><b>{server.server_name||"Unnamed VM"}</b></span></td><td><code>{server.aws_instance_id}</code></td><td><span className={`vm-power-state ${state}`}><i/>{state}</span></td><td>{server.instance_type||"—"}</td><td>—</td><td>{server.availability_zone||"—"}</td><td title={server.public_dns_name||""}>{server.public_dns_name||"—"}</td><td>{server.public_ip_address||"—"}</td><td>—</td><td>{server.private_ip_address||server.ip_address||"—"}</td><td>{server.monitoring_service||"disabled"}</td><td>{server.environment||"—"}</td></tr>})}</tbody></table></div>
           </div>:<div className="aws-vm-empty"><Server/><h3>No EC2 virtual machines found</h3><p>Refresh inventory or verify the connected AWS account and region.</p></div>}
-          {action && <div className="aws-operation-backdrop" role="presentation" onMouseDown={()=>!busy&&setAction("")}><section className="aws-operation-review" ref={operationPanel} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Confirm AWS operation" onMouseDown={(event)=>event.stopPropagation()}>
-            <header><div><span>CONFIRM OPERATION</span><h3>{actionLabel[action] || action.replaceAll("_"," ")}</h3></div><button disabled={busy} onClick={()=>{setAction("");setConfirmation("");}} aria-label="Close operation"><X/></button></header>
+          {action && <div className="aws-operation-backdrop" role="presentation" onMouseDown={()=>{if(!busy){setAction("");setOperationStarted(false);}}}><section className="aws-operation-review" ref={operationPanel} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Confirm AWS operation" onMouseDown={(event)=>event.stopPropagation()}>
+            <header><div><span>{operationStarted?"OPERATION STATUS":"CONFIRM OPERATION"}</span><h3>{actionLabel[action] || action.replaceAll("_"," ")}</h3></div><button disabled={busy} onClick={()=>{setAction("");setConfirmation("");setOperationStarted(false);}} aria-label="Close operation"><X/></button></header>
           <form className="operation-form" onSubmit={execute}>
             <dl className="aws-confirm-summary"><div><dt>Server</dt><dd>{selected?.server_name || identifier || "AWS resource"}</dd></div><div><dt>Operation</dt><dd>{actionLabel[action] || action.replaceAll("_"," ")}</dd></div></dl>
             <div className="form-grid">
@@ -2742,8 +2747,7 @@ function AwsOperationsV2({ servers, user, onNavigate }: { servers: Machine[]; us
                 ? "Executing approved operation…"
                 : "Confirm and run"}
             </button>
-            {busy && <section className="aws-simple-progress" aria-live="polite"><header><div>{progressStage>=4?<CheckCircle2/>:<RefreshCw className="spin"/>}<span><strong>{progressStage>=4?"Operation completed":"Operation in progress"}</strong><small>{actionLabel[action] || action.replaceAll("_"," ")} · {identifier}</small></span></div><b>{Math.min(100,(progressStage+1)*20)}%</b></header><div className="aws-simple-track"><i style={{width:`${Math.min(100,(progressStage+1)*20)}%`}}/></div><ol>{["Verified","Submitted","Changing state","Checking state","Completed"].map((label,index)=><li className={index<progressStage||progressStage>=4?"complete":index===progressStage?"active":""} key={label}><i>{index<progressStage||progressStage>=4?<CheckCircle2/>:index+1}</i><span>{label}</span></li>)}</ol><footer>{progressStage>=4?"AWS state verified successfully.":`Please wait while OpsAgent verifies the final AWS state · ${elapsedSeconds}s`}</footer></section>}
-            {result && <p className="notice">{result}</p>}
+            {(busy||operationStarted)&&<section className={`aws-simple-progress ${!busy&&result?"failed":""}`} aria-live="polite"><header><div>{!busy&&result?<AlertTriangle/>:progressStage>=4?<CheckCircle2/>:<RefreshCw className="spin"/>}<span><strong>{!busy&&result?"Operation failed":progressStage>=4?"Operation completed":"Operation in progress"}</strong><small>{actionLabel[action] || action.replaceAll("_"," ")} · {identifier}</small></span></div><b>{Math.min(100,(progressStage+1)*20)}%</b></header><div className="aws-simple-track"><i style={{width:`${Math.min(100,(progressStage+1)*20)}%`}}/></div><ol>{["Verified","Submitted","Changing state","Checking state","Completed"].map((label,index)=><li className={!busy&&result&&index===progressStage?"failed":index<progressStage||progressStage>=4?"complete":index===progressStage?"active":""} key={label}><i>{index<progressStage||progressStage>=4?<CheckCircle2/>:index+1}</i><span>{label}</span></li>)}</ol><footer>{!busy&&result?result:progressStage>=4?"AWS state verified successfully.":`Please wait while OpsAgent verifies the final AWS state · ${elapsedSeconds}s`}</footer></section>}
           </form>
           </section></div>}
         </article>

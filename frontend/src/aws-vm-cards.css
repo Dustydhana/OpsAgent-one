@@ -158,6 +158,11 @@
 .aws-simple-progress li.complete { color: #47cd94; }
 .aws-simple-progress li.complete > i { color: #082017; background: #47cd94; }
 .aws-simple-progress > footer { margin-top: 14px; padding-top: 11px; color: #7e8da0; border-top: 1px solid #2b3a4a; font-size: 10px; }
+.aws-simple-progress.failed > header svg,.aws-simple-progress.failed > header > b { color: #e55e6d; }
+.aws-simple-progress.failed .aws-simple-track i { background: #e55e6d; }
+.aws-simple-progress li.failed { color: #e55e6d; font-weight: 700; }
+.aws-simple-progress li.failed > i { color: #fff; background: #d94e5e; }
+.aws-simple-progress.failed > footer { color: #e47a85; }
 :root[data-theme="light"] .aws-simple-progress { color: #172033; background: #f8fafc; border-color: #d5dee8; }
 :root[data-theme="light"] .aws-simple-track { background: #e2e7ee; }
 :root[data-theme="light"] .aws-simple-progress li > i { background: #e5eaf0; }
