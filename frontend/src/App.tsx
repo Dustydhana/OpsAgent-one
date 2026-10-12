@@ -821,7 +821,7 @@ function App() {
           </div>
         </div>
         {dataConnectionIssue && <div className="data-connection-banner" role="status"><AlertTriangle/><span>{dataConnectionIssue}</span><button onClick={() => window.location.reload()}>Retry now</button></div>}
-        {active !== "AWS operations" && <header className="workspace-heading">
+        {!(["AWS operations", "Agent orchestration"].includes(active)) && <header className="workspace-heading">
           <div>
             <p className="eyebrow">OPERATIONS CENTER</p>
             <h1>{active}</h1>
@@ -4559,6 +4559,7 @@ function ServiceDeskWorkspace() {
 
 function AgentWorkspace({ health, onNavigate }: { health: Health[]; onNavigate?: (page:string)=>void }) {
   const componentHealthy = (...terms:string[]) => health.some((item) => terms.some((term) => item.Component.toLowerCase().includes(term)) && item.Status === "Healthy");
+  const isReady = (status:string) => ["Operational", "Available", "Policy active"].includes(status);
   const agents = [
     { name: "Infrastructure Agent", role: "Discovers and operates cloud and virtualization targets through approved connectors.", icon: Cloud, tone: "cyan", status: componentHealthy("aws","inventory") ? "Operational" : "Check connectors", workspace:"AWS operations", connectors:["AWS live","Azure foundation","VMware foundation"], tools:["Inventory","Lifecycle","Storage","Networks"] },
     { name: "Hardware Monitoring Agent", role: "Inspects Cisco, Dell and HPE chassis, blades and components; diagnoses faults, reports daily and prepares approval-gated ITSM tickets.", icon: ServerCog, tone: "green", status: "Connector required", workspace:"Hardware monitoring", connectors:["Cisco CIMC / Intersight","Dell iDRAC / OME","HPE iLO / OneView"], tools:["Inspect","Diagnose","Report","Escalate"] },
@@ -4571,8 +4572,18 @@ function AgentWorkspace({ health, onNavigate }: { health: Health[]; onNavigate?:
   return <section className="product-page agent-center">
     <div className="page-lead"><div><span className="badge">AGENT ORCHESTRATION</span><h2>Domain agents connected to real operations</h2><p>Each agent has a defined responsibility, connector scope and allowlisted toolset. OpsAgent coordinates policy, approval, execution and evidence across them.</p></div><button className="primary-action" onClick={()=>onNavigate?.("Connections")}><Cable /> Manage connectors</button></div>
     <div className="agent-stats"><div><span>Domain agents</span><strong>{agents.length}</strong></div><div><span>Healthy services</span><strong>{health.filter(x => x.Status === "Healthy").length}<small> / {health.length}</small></strong></div><div><span>Approval control</span><strong className="small-value">Required</strong></div><div><span>Execution mode</span><strong className="small-value">Guarded</strong></div></div>
-    <section className="agent-topology"><header><div><span>LIVE ORCHESTRATION MAP</span><h3>One control plane coordinating every operation</h3></div><b><i/> Policy connected</b></header><div className="topology-canvas"><div className="topology-sources"><span><MessageSquare/>Slack</span><span><Mail/>Gmail</span><span><Activity/>Monitoring</span><span><Database/>Inventory</span></div><div className="topology-flow"><i/><ChevronRight/></div><div className="topology-core"><OpsLogo small/><strong>OpsAgent One</strong><span>Identity · policy · approval</span><small>Tenant-scoped control plane</small></div><div className="topology-flow"><i/><ChevronRight/></div><div className="topology-agent-nodes">{agents.map(({name,icon:Icon,status,tone,workspace})=><button key={name} onClick={()=>onNavigate?.(workspace)}><span className={`agent-symbol ${tone}`}><Icon/></span><span><b>{name.replace(" Agent","")}</b><small>{status}</small></span><i className={status==="Operational"||status==="Available"||status==="Policy active"?"healthy":"attention"}/></button>)}</div></div><footer><span><ShieldCheck/> RBAC verification</span><ChevronRight/><span><Users/> Human approval</span><ChevronRight/><span><Workflow/> Allowlisted execution</span><ChevronRight/><span><CheckCircle2/> Verified evidence</span></footer></section>
-    <div className="agent-orchestration-grid">{agents.map(({name,role,icon:Icon,tone,status,workspace,connectors,tools}) => <article className="agent-operation-card" key={name}><header><div className={`agent-symbol ${tone}`}><Icon /></div><span className={`agent-runtime ${status.toLowerCase().replaceAll(" ","-")}`}><i />{status}</span></header><h3>{name}</h3><p>{role}</p><div className="agent-scope"><section><b>Connected scope</b>{connectors.map((item)=><span key={item}><CheckCircle2/>{item}</span>)}</section><section><b>Approved capabilities</b><div>{tools.map((item)=><em key={item}>{item}</em>)}</div></section></div><footer><span><ShieldCheck/>RBAC · approval · audit</span><button onClick={()=>onNavigate?.(workspace)}>Open operations <ChevronRight /></button></footer></article>)}</div>
+    <section className="orchestration-registry">
+      <header><div><span>AGENT REGISTRY</span><h3>Operational agents</h3><p>See what each agent controls, whether it is ready, and where to manage it.</p></div><b><i/> Policy connected</b></header>
+      <div className="orchestration-flow" aria-label="Guarded execution lifecycle"><span><ShieldCheck/>Request verified</span><ChevronRight/><span><Users/>Approval</span><ChevronRight/><span><Workflow/>Execute</span><ChevronRight/><span><CheckCircle2/>Evidence recorded</span></div>
+      <div className="agent-registry-head"><span>Agent</span><span>Readiness</span><span>Connected scope</span><span>Approved capabilities</span><span>Workspace</span></div>
+      <div className="agent-registry-body">{agents.map(({name,role,icon:Icon,tone,status,workspace,connectors,tools}) => <article className="agent-registry-row" key={name}>
+        <div className="agent-registry-identity"><span className={`agent-symbol ${tone}`}><Icon /></span><div><strong>{name}</strong><p>{role}</p></div></div>
+        <span className={`agent-runtime ${isReady(status)?"ready":"attention"}`}><i />{status}</span>
+        <div className="agent-connector-list">{connectors.map((item,index)=><span key={item} className={index===0&&isReady(status)?"connected":""}><i/>{item}</span>)}</div>
+        <div className="agent-capability-list">{tools.map((item)=><span key={item}>{item}</span>)}</div>
+        <button className="agent-open-action" onClick={()=>onNavigate?.(workspace)}>Open <ChevronRight /></button>
+      </article>)}</div>
+    </section>
   </section>;
 }
 
