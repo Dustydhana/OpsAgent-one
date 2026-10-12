@@ -821,7 +821,7 @@ function App() {
           </div>
         </div>
         {dataConnectionIssue && <div className="data-connection-banner" role="status"><AlertTriangle/><span>{dataConnectionIssue}</span><button onClick={() => window.location.reload()}>Retry now</button></div>}
-        <header className="workspace-heading">
+        {active !== "AWS operations" && <header className="workspace-heading">
           <div>
             <p className="eyebrow">OPERATIONS CENTER</p>
             <h1>{active}</h1>
@@ -830,7 +830,7 @@ function App() {
               infrastructure.
             </p>
           </div>
-        </header>
+        </header>}
         <Workspace
           active={active}
           summary={summary}
