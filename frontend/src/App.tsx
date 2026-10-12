@@ -772,19 +772,6 @@ function App() {
         <button className="sidebar-toggle" onClick={() => setSidebarCompact((current) => { const next = !current; localStorage.setItem("opsagent_sidebar_compact", String(next)); return next; })} title={sidebarCompact ? "Expand navigation" : "Collapse navigation"} aria-label={sidebarCompact ? "Expand navigation" : "Collapse navigation"}>
           {sidebarCompact ? <ChevronsRight /> : <><ChevronsLeft /><span>Collapse navigation</span></>}
         </button>
-        <div className="organization">
-          <span>ORGANIZATION</span>
-          <select
-            value={user.organization_id}
-            onChange={(e) => switchOrganization(e.target.value)}
-          >
-            {(user.organizations || []).map((org) => (
-              <option value={org.organization_id} key={org.organization_id}>
-                {org.name} · {displayRole(org.organization_role)}
-              </option>
-            ))}
-          </select>
-        </div>
         <nav>
           {navGroups.map((group) => (
             <div className="nav-group" key={group.label}>
@@ -835,8 +822,8 @@ function App() {
             <button className="bell" onClick={() => navigatePage("Slack alerts")} title="Open operational alerts">
               <Bell />
             </button>
-            <button className="top-profile" onClick={() => navigatePage("Account & access")} title="Account and access">
-              {user.display_name.slice(0, 2).toUpperCase()}
+            <button className="top-profile top-account" onClick={() => navigatePage("Account & access")} title="Account and access">
+              <span><strong>{user.display_name}</strong><small>{user.name || "Current organization"} · {displayRole(user.organization_role || user.role)}</small></span><i>{user.display_name.slice(0, 2).toUpperCase()}</i><ChevronDown/>
             </button>
           </div>
         </div>
