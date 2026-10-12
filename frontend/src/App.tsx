@@ -946,21 +946,20 @@ function Dashboard({
   const [refreshing, setRefreshing] = useState(true);
   const [loadIssues, setLoadIssues] = useState<string[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [platformChart, setPlatformChart] = useState<"pie" | "bar">("pie");
-  const [channelChart, setChannelChart] = useState<"pie" | "bar">("pie");
-  const [healthChart, setHealthChart] = useState<"pie" | "bar">("pie");
-  const [hardwareChart, setHardwareChart] = useState<"pie" | "bar">("pie");
-  const [osChart, setOsChart] = useState<"pie" | "bar">("pie");
+  const [platformChart, setPlatformChart] = useState<"pie" | "bar">("bar");
+  const [healthChart, setHealthChart] = useState<"pie" | "bar">("bar");
+  const [hardwareChart, setHardwareChart] = useState<"pie" | "bar">("bar");
+  const [osChart, setOsChart] = useState<"pie" | "bar">("bar");
   const [windowsVersionChart, setWindowsVersionChart] = useState<"pie" | "bar">("bar");
   const [linuxVersionChart, setLinuxVersionChart] = useState<"pie" | "bar">("bar");
   const [sccmChart, setSccmChart] = useState<"pie" | "bar">("bar");
-  const [virtualizationChart, setVirtualizationChart] = useState<"pie" | "bar">("pie");
+  const [virtualizationChart, setVirtualizationChart] = useState<"pie" | "bar">("bar");
   const [vmwareVersionChart, setVmwareVersionChart] = useState<"pie" | "bar">("bar");
-  const [hardwareTypeChart, setHardwareTypeChart] = useState<"pie" | "bar">("pie");
-  const [powerChart, setPowerChart] = useState<"pie" | "bar">("pie");
-  const [environmentChart, setEnvironmentChart] = useState<"pie" | "bar">("pie");
-  const [monitoringChart, setMonitoringChart] = useState<"pie" | "bar">("pie");
-  const [changeChart, setChangeChart] = useState<"pie" | "bar">("pie");
+  const [hardwareTypeChart, setHardwareTypeChart] = useState<"pie" | "bar">("bar");
+  const [powerChart, setPowerChart] = useState<"pie" | "bar">("bar");
+  const [environmentChart, setEnvironmentChart] = useState<"pie" | "bar">("bar");
+  const [monitoringChart, setMonitoringChart] = useState<"pie" | "bar">("bar");
+  const [changeChart, setChangeChart] = useState<"pie" | "bar">("bar");
   const loadDashboard = async () => {
     setRefreshing(true);
     const results = await Promise.allSettled([
@@ -999,7 +998,6 @@ function Dashboard({
   const unmonitored = servers.filter((s) => !s.monitoring_service || /unknown|not assigned/i.test(s.monitoring_service)).length;
   const publicAssets = servers.filter((s) => s.public_ip_address).length;
   const healthy = health.filter((x) => x.Status === "Healthy").length;
-  const maxProvider = Math.max(1, ...Object.values(summary.providers));
   const findings = [
     ["Powered-off assets", summary.powered_off, "Unavailable or intentionally stopped", summary.powered_off ? "medium" : "good", Activity],
     ["Ownership gaps", unowned, "No accountable team assigned", unowned ? "high" : "good", Users],
@@ -1042,10 +1040,6 @@ function Dashboard({
     onNavigate?.("Documentation");
   };
   const providerSeries = Object.entries(summary.providers).map(([label, value], index) => ({ label: label.toUpperCase(), value, color: ["#f59e0b", "#268bd2", "#7357d9", "#17a673"][index % 4] }));
-  const channelSeries = [
-    { label: "Slack", value: slack?.received || 0, color: "#611f69" },
-    { label: "Gmail", value: gmail?.received || 0, color: "#ea4335" },
-  ];
   const healthSeries = [
     { label: "Healthy", value: healthy, color: "#18a66a" },
     { label: "Needs attention", value: connectorProblems.length, color: "#e58b2a" },
@@ -1124,7 +1118,7 @@ function Dashboard({
   const chartPanel = (title: string, kicker: string, mode: "pie" | "bar", setMode: (value: "pie" | "bar") => void, series: { label: string; value: number; color: string }[], action: () => void) => {
     const total = series.reduce((sum, item) => sum + item.value, 0);
     const maximum = Math.max(1, ...series.map((item) => item.value));
-    return <article className="command-panel dashboard-chart-panel"><header><div><span>{kicker}</span><h3>{title}</h3></div><div className="chart-header-actions"><div className="chart-switch" aria-label={`${title} visualization`}><button className={mode === "pie" ? "active" : ""} onClick={() => setMode("pie")}>Pie</button><button className={mode === "bar" ? "active" : ""} onClick={() => setMode("bar")}>Bar</button></div><button onClick={action}>View details <ChevronRight /></button></div></header><div className={`dashboard-chart ${mode}`}>
+    return <article className="command-panel dashboard-chart-panel"><header><div><span>{kicker}</span><h3>{title}</h3></div><div className="chart-header-actions"><div className="chart-switch" aria-label={`${title} visualization`}><button className={mode === "bar" ? "active" : ""} onClick={() => setMode("bar")}>Bar</button><button className={mode === "pie" ? "active" : ""} onClick={() => setMode("pie")}>Pie</button></div><button onClick={action}>View details <ChevronRight /></button></div></header><div className={`dashboard-chart ${mode}`}>
       {mode === "pie" ? <div className="pie-layout"><div className="pie-chart" style={{background:pieBackground(series)}}><div><strong>{total}</strong><span>Total</span></div></div><div className="chart-legend">{series.map((item)=><div key={item.label}><i style={{background:item.color}}/><span>{item.label}</span><strong>{item.value}</strong><small>{total ? `${Math.round(item.value / total * 100)}%` : "0%"}</small></div>)}</div></div> : <div className="dashboard-bars">{series.map((item)=><div key={item.label}><div><span>{item.label}</span><strong>{item.value}</strong></div><i><b style={{width:`${item.value / maximum * 100}%`,background:item.color}}/></i></div>)}</div>}
     </div></article>;
   };
@@ -1145,7 +1139,6 @@ function Dashboard({
 
       <section className="dashboard-visuals">
         {chartPanel("Assets by platform", "ESTATE COVERAGE", platformChart, setPlatformChart, providerSeries, () => onNavigate?.("Server inventory"))}
-        {chartPanel("Alert requests by channel", "REQUEST CHANNELS", channelChart, setChannelChart, channelSeries, () => onNavigate?.("Slack alerts"))}
         {chartPanel("Control-plane health", "SERVICE READINESS", healthChart, setHealthChart, healthSeries, () => onNavigate?.("Agent health"))}
         {chartPanel("Hardware estate", `HARDWARE HEALTH · ${hardware?.summary.active_alerts || 0} OPEN FINDINGS`, hardwareChart, setHardwareChart, hardwareSeries, () => onNavigate?.("Hardware monitoring"))}
         {chartPanel("Operating systems", "SERVER ESTATE", osChart, setOsChart, osSeries, () => onNavigate?.("Server inventory"))}
@@ -1163,7 +1156,6 @@ function Dashboard({
 
       <section className="command-grid primary-grid">
         <article className="command-panel priority-panel"><header><div><span>ACTION REQUIRED</span><h3>Prioritized operational risks</h3></div><button onClick={() => onNavigate?.("Server inventory")}>Investigate <ChevronRight /></button></header>{findings.map(([label,count,detail,severity,Icon])=><button className="risk-row" key={label} onClick={()=>onNavigate?.(label === "Monitoring gaps" ? "Agent health" : label === "Publicly addressed" ? "AWS operations" : "Server inventory")}><i className={`risk-icon ${severity}`}><Icon /></i><div><strong>{label}</strong><small>{detail}</small></div><b>{count}</b><ChevronRight /></button>)}</article>
-        <article className="command-panel estate-panel"><header><div><span>ESTATE COVERAGE</span><h3>Assets by platform</h3></div><b>{summary.total} total</b></header><div className="source-bars">{Object.entries(summary.providers).map(([name,count])=><div className="source-bar" key={name}><div><span className={`source-dot ${name}`} /><strong>{name.toUpperCase()}</strong><b>{count}</b></div><div className="bar-track"><i style={{width:`${count/maxProvider*100}%`}} /></div></div>)}</div><footer><div><strong>{summary.production}</strong><span>Production</span></div><div><strong>{summary.test}</strong><span>Test / QA</span></div><div><strong>{summary.unknown}</strong><span>Unknown</span></div></footer></article>
       </section>
 
       <section className="command-grid status-grid">
