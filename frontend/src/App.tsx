@@ -935,6 +935,7 @@ function Dashboard({
   const [operations, setOperations] = useState<{ summary: Record<string, number>; events: Record<string, unknown>[] } | null>(null);
   const [awsDashboard, setAwsDashboard] = useState<AwsDashboardSummary | null>(null);
   const [usageSummary, setUsageSummary] = useState<Record<string, number> | null>(null);
+  const [usageBreakdown, setUsageBreakdown] = useState<Record<string, unknown>[]>([]);
   const [slack, setSlack] = useState<Record<string, number> | null>(null);
   const [gmail, setGmail] = useState<Record<string, number> | null>(null);
   const [hardware, setHardware] = useState<HardwareDashboard | null>(null);
@@ -969,8 +970,9 @@ function Dashboard({
       api<SccmInventory>("/sccm/inventory"),
       api<AwsDashboardSummary>("/operations/aws/dashboard"),
       api<Record<string, number>>("/usage/summary?hours=720"),
+      api<Record<string, unknown>[]>("/usage/breakdown?hours=720"),
     ]);
-    const [awsResult, slackResult, gmailResult, logResult, hardwareResult, sccmResult, awsDashboardResult, usageResult] = results;
+    const [awsResult, slackResult, gmailResult, logResult, hardwareResult, sccmResult, awsDashboardResult, usageResult, usageBreakdownResult] = results;
     if (awsResult.status === "fulfilled") setOperations(awsResult.value);
     if (slackResult.status === "fulfilled") setSlack(slackResult.value.summary);
     if (gmailResult.status === "fulfilled") setGmail(gmailResult.value.summary);
@@ -979,7 +981,8 @@ function Dashboard({
     if (sccmResult.status === "fulfilled") setSccmDashboard(sccmResult.value);
     if (awsDashboardResult.status === "fulfilled") setAwsDashboard(awsDashboardResult.value);
     if (usageResult.status === "fulfilled") setUsageSummary(usageResult.value);
-    const names = ["Change audit", "Slack", "Gmail", "Operational logs", "Hardware", "SCCM", "AWS insights", "Usage"];
+    if (usageBreakdownResult.status === "fulfilled") setUsageBreakdown(usageBreakdownResult.value);
+    const names = ["Change audit", "Slack", "Gmail", "Operational logs", "Hardware", "SCCM", "AWS insights", "Usage", "Usage breakdown"];
     setLoadIssues(results.flatMap((result, index) => result.status === "rejected" ? [names[index]] : []));
     setLastUpdated(new Date());
     setRefreshing(false);
@@ -994,8 +997,6 @@ function Dashboard({
   const unmonitored = servers.filter((s) => !s.monitoring_service || /unknown|not assigned/i.test(s.monitoring_service)).length;
   const publicAssets = servers.filter((s) => s.public_ip_address).length;
   const healthy = health.filter((x) => x.Status === "Healthy").length;
-  const coverage = health.length ? Math.round((healthy / health.length) * 100) : 0;
-  const availability = summary.total ? Math.round((summary.powered_on / summary.total) * 100) : 0;
   const maxProvider = Math.max(1, ...Object.values(summary.providers));
   const findings = [
     ["Powered-off assets", summary.powered_off, "Unavailable or intentionally stopped", summary.powered_off ? "medium" : "good", Activity],
@@ -1023,6 +1024,9 @@ function Dashboard({
     ["VMware", connectorState([/vmware|vsphere/i], /vmware|vsphere|esxi/i)],
     ["SCCM", connectorState([/sccm/i])],
   ];
+  const usageBars = usageBreakdown.map((item) => ({label:String(item.section || "Other"),value:Number(item.interactions || 0),cost:Number(item.cost_usd || 0)})).filter((item) => item.value > 0).sort((a,b) => b.value-a.value).slice(0,5);
+  const maxUsage = Math.max(1,...usageBars.map((item)=>item.value));
+  const usageColor = (label:string) => /chat/i.test(label) ? "#18a66a" : /slack/i.test(label) ? "#e0a11b" : /aws/i.test(label) ? "#f59e0b" : /gmail|email/i.test(label) ? "#ea4335" : "#315eea";
   const grafanaHealth = health.find((item) => /grafana/i.test(item.Component));
   const monitored = Math.max(0, servers.length - unmonitored);
   const monitoringCoverage = servers.length ? Math.round(monitored / servers.length * 100) : 0;
@@ -1132,16 +1136,9 @@ function Dashboard({
       </section>
 
       <section className="dashboard-aws-widgets">
-        <article className="dashboard-aws-card cost"><header><div><span>OPSAGENT FINOPS</span><h3>Cost and usage</h3></div><button onClick={() => onNavigate?.("AI usage & cost")}>View details <ChevronRight/></button></header>{usageSummary ? <div className="platform-usage-content"><div><small>Estimated model cost · 30 days</small><strong>${Number(usageSummary.cost_usd || 0).toFixed(2)}</strong><span>Based on configured model token rates</span></div><div className="platform-usage-metrics"><p><span>Model calls</span><b>{Number(usageSummary.calls || 0).toLocaleString()}</b></p><p><span>Total tokens</span><b>{Number(usageSummary.total_tokens || 0).toLocaleString()}</b></p><p><span>Interactions</span><b>{Number(usageSummary.interactions || 0).toLocaleString()}</b></p></div></div> : <div className="aws-widget-empty"><Database/><div><strong>Usage data unavailable</strong><span>Admin access is required to view organization model usage.</span></div><button onClick={() => onNavigate?.("AI usage & cost")}>Open usage</button></div>}</article>
+        <article className="dashboard-aws-card cost"><header><div><span>OPSAGENT FINOPS</span><h3>Cost and usage</h3></div><button onClick={() => onNavigate?.("AI usage & cost")}>View details <ChevronRight/></button></header>{usageSummary ? <div className="platform-usage-content"><div><small>Estimated model cost · 30 days</small><strong>${Number(usageSummary.cost_usd || 0).toFixed(2)}</strong><span>{Number(usageSummary.calls || 0).toLocaleString()} model calls · {Number(usageSummary.total_tokens || 0).toLocaleString()} tokens</span></div><div className="platform-usage-bars">{usageBars.length ? usageBars.map((item)=><div key={item.label}><p><span><i style={{background:usageColor(item.label)}}/>{item.label}</span><b>{item.value}</b></p><em><i style={{width:`${item.value/maxUsage*100}%`,background:usageColor(item.label)}}/></em></div>) : <small>No usage recorded for this period.</small>}</div></div> : <div className="aws-widget-empty"><Database/><div><strong>Usage data unavailable</strong><span>Admin access is required to view organization model usage.</span></div><button onClick={() => onNavigate?.("AI usage & cost")}>Open usage</button></div>}</article>
         <article className="dashboard-aws-card requests"><header><div><span>REQUEST CHANNELS</span><h3>Alert and request processing</h3></div><button onClick={() => onNavigate?.("Slack alerts")}>Open alerts <ChevronRight/></button></header><div className="dashboard-request-summary"><button onClick={()=>onNavigate?.("Slack alerts")}><FaSlack/><span>Slack</span><strong>{slack?.received ?? "—"}</strong><small>received</small><b>{slack?.average_ack_seconds != null ? `${slack.average_ack_seconds}s avg ack` : "No response data"}</b></button><button onClick={()=>onNavigate?.("Gmail alerts")}><SiGmail/><span>Gmail</span><strong>{gmail?.received ?? "—"}</strong><small>received</small><b>{gmail?.processed ?? "—"} processed</b></button><button onClick={()=>onNavigate?.("AWS operations")}><ShieldCheck/><span>Changes</span><strong>{operations?.summary.succeeded ?? "—"}</strong><small>succeeded</small><b className={operationFailed ? "failed" : ""}>{operationFailed ?? "—"} failed</b></button></div></article>
         <article className="dashboard-aws-card platforms"><header><div><span>INTEGRATIONS</span><h3>Connected platforms</h3></div><button onClick={() => onNavigate?.("Connections")}>Manage <ChevronRight/></button></header><div className="dashboard-platform-list">{platformConnections.map(([name,status]) => <button key={name} onClick={() => onNavigate?.("Connections")}><i className={status === "Connected" ? "connected" : status === "Attention" ? "attention" : ""}/><span>{name}</span><small>{status}</small><ChevronRight/></button>)}</div></article>
-      </section>
-
-      <section className="command-kpis">
-        <article><div><span>Estate availability</span><small>{summary.powered_on} of {summary.total} assets active</small></div><strong>{availability}%</strong><i className="kpi-line"><b style={{width:`${availability}%`}} /></i></article>
-        <article><div><span>Outstanding alerts</span><small>Slack alerts requiring action</small></div><strong className={outstandingAlerts ? "attention" : ""}>{outstandingAlerts ?? "—"}</strong></article>
-        <article><div><span>Changes</span><small>Operations executed in 24 hours</small></div><strong>{operationTotal ?? "—"}</strong></article>
-        <article><div><span>Control health</span><small>{healthy} healthy · {connectorProblems.length} need attention</small></div><strong>{coverage}%</strong><i className="kpi-line"><b style={{width:`${coverage}%`}} /></i></article>
       </section>
 
       <section className="dashboard-visuals">
