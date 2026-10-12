@@ -42,6 +42,7 @@ import {
   Search,
   RefreshCw,
   Send,
+  Share2,
   Server,
   ServerCog,
   Settings as SettingsIcon,
@@ -821,7 +822,7 @@ function App() {
           </div>
         </div>
         {dataConnectionIssue && <div className="data-connection-banner" role="status"><AlertTriangle/><span>{dataConnectionIssue}</span><button onClick={() => window.location.reload()}>Retry now</button></div>}
-        {!(["AWS operations", "Agent orchestration"].includes(active)) && <header className="workspace-heading">
+        {!(["AWS operations", "Agent orchestration", "OpsAgent chat"].includes(active)) && <header className="workspace-heading">
           <div>
             <p className="eyebrow">OPERATIONS CENTER</p>
             <h1>{active}</h1>
@@ -2105,6 +2106,12 @@ function Chat() {
     setMessages([]);
     refresh();
   }
+  const renderInline = (value:string) => value.split(/(\*\*.*?\*\*|`[^`]+`)/g).map((part,index) => part.startsWith("**") && part.endsWith("**") ? <strong key={index}>{part.slice(2,-2)}</strong> : part.startsWith("`") && part.endsWith("`") ? <code key={index}>{part.slice(1,-1)}</code> : part);
+  const renderMessage = (value:string) => <div className="chat-message-content">{value.split(/(```[\s\S]*?```)/g).filter(Boolean).map((block,index) => {
+    if (block.startsWith("```")) { const code = block.slice(3,-3).replace(/^[a-zA-Z0-9_+-]+\n/,""); return <pre key={index}><code>{code.trim()}</code><button onClick={()=>navigator.clipboard.writeText(code.trim())} title="Copy code" aria-label="Copy code"><Copy/></button></pre>; }
+    return <div key={index}>{block.split("\n").map((line,lineIndex) => { const ordered=line.match(/^\s*(\d+)\.\s+(.*)$/); const bullet=line.match(/^\s*[-*]\s+(.*)$/); if(ordered)return <p className="chat-list-line" key={lineIndex}><span>{ordered[1]}.</span>{renderInline(ordered[2])}</p>; if(bullet)return <p className="chat-list-line" key={lineIndex}><span>•</span>{renderInline(bullet[1])}</p>; if(!line.trim())return <span className="chat-line-space" key={lineIndex}/>; return <p key={lineIndex}>{renderInline(line)}</p>; })}</div>;
+  })}</div>;
+  const shareMessage = async (content:string) => { if (navigator.share) await navigator.share({title:"OpsAgent response",text:content}); else await navigator.clipboard.writeText(content); };
   return (
     <section className="chat-shell">
       <aside className="chat-history">
@@ -2173,15 +2180,15 @@ function Chat() {
           )}
           {messages.map((m, i) => { const terminationId = m.role === "assistant" && /Action:\s*(?:Terminate Instance|Permanently terminate)/i.test(m.content) ? m.content.match(/Request ID:\s*(CHAT-[0-9A-F]{8})/i)?.[1]?.toUpperCase() : undefined; return (
             <article className={`message ${m.role}`} key={i}>
-              <b>{m.role === "user" ? "You" : "OpsAgent"}</b>
-              <p>{m.content}</p>
+              {m.role === "assistant" && <div className="chat-agent-avatar" title="OpsAgent"><Bot/></div>}
+              <div className="chat-message-body">{renderMessage(m.content)}
               {terminationId && <section className="termination-approval"><header><AlertTriangle/><div><strong>Permanent AWS termination</strong><span>Admin + MFA required · irreversible operation</span></div></header><label><input type="checkbox" checked={!!terminationBackups[terminationId]} onChange={(e)=>setTerminationBackups((current)=>({...current,[terminationId]:e.target.checked}))}/><span>I confirm the required backup or snapshot is complete.</span></label><label>Authenticator code<input inputMode="numeric" maxLength={6} value={terminationCodes[terminationId] || ""} onChange={(e)=>setTerminationCodes((current)=>({...current,[terminationId]:e.target.value.replace(/\D/g,"").slice(0,6)}))} placeholder="6-digit code"/></label><button disabled={!terminationBackups[terminationId] || (terminationCodes[terminationId] || "").length !== 6} onClick={()=>approveTermination(terminationId)}><ShieldCheck/>Verify MFA and terminate</button>{terminationResults[terminationId] && <p>{terminationResults[terminationId]}</p>}</section>}
+              {m.role === "assistant" && <div className="chat-message-actions"><button onClick={()=>navigator.clipboard.writeText(m.content)} title="Copy response" aria-label="Copy response"><Copy/></button><button onClick={()=>shareMessage(m.content)} title="Share response" aria-label="Share response"><Share2/></button><button title="More options" aria-label="More options"><MoreHorizontal/></button></div>}</div>
             </article>
           )})}
           {busy && !provisionOpen && (
             <article className="message assistant">
-              <b>OpsAgent</b>
-              <p>Analyzing your infrastructure…</p>
+              <div className="chat-agent-avatar"><Bot/></div><div className="chat-message-body"><p className="chat-thinking"><i/><i/><i/>OpsAgent is analyzing</p></div>
             </article>
           )}
         </div>
