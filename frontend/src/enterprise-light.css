@@ -1,6 +1,6 @@
 /* Compact, information-dense enterprise console inspired by modern asset platforms. */
 :root[data-theme="light"] {
-  --aws-canvas: #f3f6f9;
+  --aws-canvas: #ffffff;
   --aws-nav: #ffffff;
   --aws-side: #e9eef4;
   --aws-surface: #ffffff;
@@ -354,7 +354,7 @@
 :root[data-theme="light"] .asset-hero-icon svg{width:26px;height:26px}
 
 /* Strong panel separation and full light-mode visibility. */
-:root[data-theme="light"] .workspace{background:#f3f6f9}
+:root[data-theme="light"] .workspace{background:#fff}
 :root[data-theme="light"] .asset-workspace{background:#fff;border:1px solid #aeb6bf;box-shadow:0 12px 30px #26344318}
 :root[data-theme="light"] .asset-toolbar{background:#fff;border-bottom:1px solid #b9c0c8}
 :root[data-theme="light"] .asset-tree{background:#e4e7ea;border-right:1px solid #b4bbc3}
