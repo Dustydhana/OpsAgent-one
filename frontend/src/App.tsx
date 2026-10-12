@@ -2699,6 +2699,7 @@ function AwsOperationsV2({ servers, user, onNavigate }: { servers: Machine[]; us
           {action && <div className="aws-operation-backdrop" role="presentation" onMouseDown={()=>{if(!busy){setAction("");setOperationStarted(false);}}}><section className="aws-operation-review" ref={operationPanel} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Confirm AWS operation" onMouseDown={(event)=>event.stopPropagation()}>
             <header><div><span>{operationStarted?"OPERATION STATUS":"CONFIRM OPERATION"}</span><h3>{actionLabel[action] || action.replaceAll("_"," ")}</h3></div><button disabled={busy} onClick={()=>{setAction("");setConfirmation("");setOperationStarted(false);}} aria-label="Close operation"><X/></button></header>
           <form className="operation-form" onSubmit={execute}>
+            {!operationStarted?<>
             <dl className="aws-confirm-summary"><div><dt>Server</dt><dd>{selected?.server_name || identifier || "AWS resource"}</dd></div><div><dt>Operation</dt><dd>{actionLabel[action] || action.replaceAll("_"," ")}</dd></div></dl>
             <div className="form-grid">
               {action === "resize_instance" && (
@@ -2738,16 +2739,14 @@ function AwsOperationsV2({ servers, user, onNavigate }: { servers: Machine[]; us
                 </label>
               )}
             </div>
-            {!busy&&<div className="aws-confirm-fields"><label>Username<input value={user.username} readOnly /></label><label>Password<input type="password" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} placeholder="Enter password" autoComplete="current-password" autoFocus /></label></div>}
+            <div className="aws-confirm-fields"><label>Username<input value={user.username} readOnly /></label><label>Password<input type="password" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} placeholder="Enter password" autoComplete="current-password" autoFocus /></label></div>
             <button
               className="execute"
-              disabled={busy || !identifier || !confirmation}
+              disabled={!identifier || !confirmation}
             >
-              {busy
-                ? "Executing approved operation…"
-                : "Confirm and run"}
+              Confirm and run
             </button>
-            {(busy||operationStarted)&&<section className={`aws-simple-progress ${!busy&&result?"failed":""}`} aria-live="polite"><header><div>{!busy&&result?<AlertTriangle/>:progressStage>=4?<CheckCircle2/>:<RefreshCw className="spin"/>}<span><strong>{!busy&&result?"Operation failed":progressStage>=4?"Operation completed":"Operation in progress"}</strong><small>{actionLabel[action] || action.replaceAll("_"," ")} · {identifier}</small></span></div><b>{Math.min(100,(progressStage+1)*20)}%</b></header><div className="aws-simple-track"><i style={{width:`${Math.min(100,(progressStage+1)*20)}%`}}/></div><ol>{["Verified","Submitted","Changing state","Checking state","Completed"].map((label,index)=><li className={!busy&&result&&index===progressStage?"failed":index<progressStage||progressStage>=4?"complete":index===progressStage?"active":""} key={label}><i>{index<progressStage||progressStage>=4?<CheckCircle2/>:index+1}</i><span>{label}</span></li>)}</ol><footer>{!busy&&result?result:progressStage>=4?"AWS state verified successfully.":`Please wait while OpsAgent verifies the final AWS state · ${elapsedSeconds}s`}</footer></section>}
+            </>:<><section className={`aws-simple-progress ${!busy&&result?"failed":""}`} aria-live="polite"><header><div>{!busy&&result?<AlertTriangle/>:progressStage>=4?<CheckCircle2/>:<RefreshCw className="spin"/>}<span><strong>{!busy&&result?"Operation failed":progressStage>=4?"Operation completed":"Operation in progress"}</strong><small>{selected?.server_name || identifier} · {elapsedSeconds}s</small></span></div><b>{Math.min(100,(progressStage+1)*20)}%</b></header><div className="aws-simple-track"><i style={{width:`${Math.min(100,(progressStage+1)*20)}%`}}/></div><ol>{["Verified","Submitted","Changing state","Checking state","Completed"].map((label,index)=><li className={!busy&&result&&index===progressStage?"failed":index<progressStage||progressStage>=4?"complete":index===progressStage?"active":""} key={label}><i>{index<progressStage||progressStage>=4?<CheckCircle2/>:index+1}</i><span>{label}</span></li>)}</ol><footer>{!busy&&result?result:progressStage>=4?"AWS state verified successfully.":"OpsAgent is waiting for AWS to report the final state."}</footer></section>{!busy&&result&&<div className="aws-progress-actions"><button type="button" onClick={()=>{setAction("");setOperationStarted(false);}}>Close</button><button type="button" onClick={()=>{setOperationStarted(false);setResult("");}}>Try again</button></div>}</>}
           </form>
           </section></div>}
         </article>

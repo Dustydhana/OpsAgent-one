@@ -163,6 +163,9 @@
 .aws-simple-progress li.failed { color: #e55e6d; font-weight: 700; }
 .aws-simple-progress li.failed > i { color: #fff; background: #d94e5e; }
 .aws-simple-progress.failed > footer { color: #e47a85; }
+.aws-progress-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.aws-progress-actions button { padding: 8px 13px; color: #aebaca; background: #172331; border: 1px solid #344658; border-radius: 7px; font-size: 10px; font-weight: 700; cursor: pointer; }
+.aws-progress-actions button:last-child { color: #fff; background: #4965dc; border-color: #4965dc; }
 :root[data-theme="light"] .aws-simple-progress { color: #172033; background: #f8fafc; border-color: #d5dee8; }
 :root[data-theme="light"] .aws-simple-track { background: #e2e7ee; }
 :root[data-theme="light"] .aws-simple-progress li > i { background: #e5eaf0; }
@@ -170,6 +173,8 @@
 :root[data-theme="light"] .aws-simple-progress li.active > i { color: #fff; background: #4265d8; }
 :root[data-theme="light"] .aws-simple-progress li.complete > i { color: #fff; background: #249d6d; }
 :root[data-theme="light"] .aws-simple-progress > footer { border-color: #dce3eb; }
+:root[data-theme="light"] .aws-progress-actions button { color: #35465b; background: #fff; border-color: #c8d2de; }
+:root[data-theme="light"] .aws-progress-actions button:last-child { color: #fff; background: #4262d5; border-color: #4262d5; }
 
 :root[data-theme="light"] .aws-state-summary span { color: #586779; background: #f7f9fc; border-color: #d8e0e9; }
 :root[data-theme="light"] .aws-instance-console { background: #fff; border-color: #cfd8e3; }
