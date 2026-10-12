@@ -680,6 +680,9 @@ function App() {
   const [servers, setServers] = useState<Machine[]>([]);
   const [health, setHealth] = useState<Health[]>([]);
   const [query, setQuery] = useState("");
+  const [globalQuery, setGlobalQuery] = useState("");
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
+  const globalSearchRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [dataConnectionIssue, setDataConnectionIssue] = useState("");
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -692,6 +695,18 @@ function App() {
     const restoreRoute = () => setActive(pageFromPath(location.pathname) || "Dashboard");
     window.addEventListener("popstate", restoreRoute);
     return () => window.removeEventListener("popstate", restoreRoute);
+  }, []);
+  useEffect(() => {
+    const openGlobalSearch = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setGlobalSearchOpen(true);
+        globalSearchRef.current?.focus();
+      }
+      if (event.key === "Escape") setGlobalSearchOpen(false);
+    };
+    window.addEventListener("keydown", openGlobalSearch);
+    return () => window.removeEventListener("keydown", openGlobalSearch);
   }, []);
   useEffect(() => { if (user && !pageFromPath(location.pathname)) navigatePage(active, true); }, [user]);
   useEffect(() => {
@@ -795,11 +810,20 @@ function App() {
               {sidebarCompact ? <ChevronsRight /> : <Menu />}
             </button>
             <button className="topbar-brand" onClick={() => navigatePage("Dashboard")} aria-label="OpsAgent One home"><BrandLockup compact /></button>
-            <button className="global-search" onClick={() => navigatePage("Server inventory")}>
+            <div className={`global-search ${globalSearchOpen ? "open" : ""}`}>
               <Search />
-              <span>Search resources</span>
+              <input ref={globalSearchRef} value={globalQuery} onChange={(event) => { setGlobalQuery(event.target.value); setGlobalSearchOpen(true); }} onFocus={() => setGlobalSearchOpen(true)} onBlur={() => window.setTimeout(() => setGlobalSearchOpen(false), 150)} placeholder="Search pages and resources" aria-label="Search pages and resources" />
               <kbd>⌘ K</kbd>
-            </button>
+              {globalSearchOpen && <div className="global-search-results">
+                {(() => {
+                  const term = globalQuery.trim().toLowerCase();
+                  const pages = navGroups.flatMap((group) => group.items.map(([label, Icon]) => ({ label, detail: group.label, Icon }))).filter((item) => !term || item.label.toLowerCase().includes(term)).slice(0, 6);
+                  const resources = servers.filter((server) => !term || [server.server_name, server.aws_instance_id, server.private_ip_address, server.public_ip_address, server.application, server.environment].some((value) => String(value || "").toLowerCase().includes(term))).slice(0, 6);
+                  if (!pages.length && !resources.length) return <div className="global-search-empty">No matching pages or resources</div>;
+                  return <>{pages.length > 0 && <section><span>Pages</span>{pages.map(({label, detail, Icon}) => <button key={label} onMouseDown={(event) => event.preventDefault()} onClick={() => { navigatePage(label); setGlobalSearchOpen(false); setGlobalQuery(""); }}><Icon/><div><strong>{label}</strong><small>{detail}</small></div><ChevronRight/></button>)}</section>}{resources.length > 0 && <section><span>Resources</span>{resources.map((server) => <button key={`${server.vm_type}-${server.server_name}-${server.aws_instance_id}`} onMouseDown={(event) => event.preventDefault()} onClick={() => { setQuery(server.server_name); navigatePage("Server inventory"); setGlobalSearchOpen(false); setGlobalQuery(""); }}><Server/><div><strong>{server.server_name}</strong><small>{server.aws_instance_id || server.private_ip_address || server.vm_type} · {server.status}</small></div><ChevronRight/></button>)}</section>}</>;
+                })()}
+              </div>}
+            </div>
           </div>
           <div className="context">
             <button className="bell" onClick={() => navigatePage("Slack alerts")} title="Open operational alerts">
