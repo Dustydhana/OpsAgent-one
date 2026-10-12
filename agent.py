@@ -25,6 +25,7 @@ from openai import OpenAI
 
 import config
 import ai_usage
+import hardware_monitoring
 import remediation
 
 _IGNORED_HOST_TOKENS = {
@@ -279,6 +280,11 @@ def answer_investigation_question(result, question, alert_text="Manual dashboard
     if not question or not question.strip():
         return "Please ask a question about the current investigation."
 
+    if not config.OPENAI_API_KEY:
+        return (
+            "The investigation evidence is available, but AI analysis is temporarily unavailable while the "
+            "model connection is being configured. Review the collected diagnostics below or ask an administrator."
+        )
     try:
         client = OpenAI(api_key=config.OPENAI_API_KEY)
         response = client.chat.completions.create(
@@ -293,7 +299,10 @@ def answer_investigation_question(result, question, alert_text="Manual dashboard
         return (response.choices[0].message.content or "").strip() or "I couldn't generate an answer."
     except Exception as exc:
         ai_usage.record(requester=requester,activity="investigation_chat",request_text=question,error=exc)
-        return f"I couldn't answer that question right now: {exc}"
+        return (
+            "AI analysis is temporarily unavailable after the model request failed. "
+            "The collected diagnostic evidence remains available for manual review."
+        )
 
 
 def answer_infrastructure_question(question, inventory_records=None, conversation_history=None, requester="unknown", persona="Senior Infrastructure Architect", organization_id=None):
@@ -334,6 +343,8 @@ def answer_infrastructure_question(question, inventory_records=None, conversatio
         "role": "user",
         "content": f"Current canonical server inventory (no credentials):\n{json.dumps(inventory, default=str)[:16000]}\n\nQuestion: {question}",
     })
+    if not config.OPENAI_API_KEY:
+        return _offline_infrastructure_answer(question, inventory_records)
     try:
         client = OpenAI(api_key=config.OPENAI_API_KEY)
         response = client.chat.completions.create(
@@ -343,7 +354,46 @@ def answer_infrastructure_question(question, inventory_records=None, conversatio
         return (response.choices[0].message.content or "").strip() or "I couldn't generate an answer."
     except Exception as exc:
         ai_usage.record(requester=requester,activity="infrastructure_chat",request_text=question,error=exc,organization_id=organization_id)
-        return f"I couldn't answer that infrastructure question right now: {exc}"
+        return _offline_infrastructure_answer(question, inventory_records, model_error=True)
+
+
+def _offline_infrastructure_answer(question, inventory_records=None, model_error=False):
+    """Provide truthful, useful answers when the optional model service is unavailable."""
+    normalized = " ".join(str(question or "").lower().split())
+    inventory = list(inventory_records or [])
+    if normalized in {"hi", "hello", "hey", "what's up", "whats up", "what's going on", "whats going on"}:
+        return (
+            "Hi! OpsAgent is online. I can still show connected inventory and operational status. "
+            "Free-form AI analysis is temporarily unavailable while the model connection is being configured."
+        )
+    if any(term in normalized for term in ("hardware", "chassis", "blade", "idrac", "ilo", "cisco ucs")):
+        hardware = hardware_monitoring.dashboard()
+        summary = hardware["summary"]
+        if not hardware["connector"]["configured"]:
+            return (
+                "No live hardware connector is configured for this environment, so there is no chassis or blade "
+                "health evidence to summarize. Connect Cisco UCS/Intersight, Dell OpenManage/iDRAC, or HPE "
+                "OneView/iLO under Connections, then run a hardware scan."
+            )
+        return (
+            f"Hardware status: {summary['chassis']} chassis, {summary['blades']} blades, "
+            f"{summary['healthy_blades']} healthy blades, and {summary['active_alerts']} active alerts."
+        )
+    if any(term in normalized for term in ("inventory", "server", "instance", "vm", "status", "health")):
+        if not inventory:
+            return "No server inventory is available for this organization. Connect or synchronize an infrastructure provider first."
+        running = sum(str(item.get("status") or "").lower() in {"running", "online", "healthy", "active"} for item in inventory)
+        platforms = sorted({str(item.get("vm_type") or "unknown") for item in inventory})
+        return (
+            f"Current inventory contains {len(inventory)} assets; {running} report an active or healthy state. "
+            f"Platforms represented: {', '.join(platforms)}."
+        )
+    suffix = " after a model request failed" if model_error else ""
+    return (
+        f"OpsAgent's live operational tools are available, but free-form AI analysis is temporarily unavailable{suffix}. "
+        "An administrator must configure the model connection in the API service. You can still ask for inventory, "
+        "server status, or hardware status."
+    )
 
 
 def run_agent(ssh, diagnostics_text, alert_text, inventory_context=None, monitoring_service=None):
